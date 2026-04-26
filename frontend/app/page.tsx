@@ -87,7 +87,7 @@ type AuditResponse = {
   };
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 const tabs: { key: TabKey; label: string }[] = [
   { key: "baseline", label: "Baseline Model" },
