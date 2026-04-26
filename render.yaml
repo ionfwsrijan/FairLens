@@ -14,3 +14,7 @@ services:
         value: .
       - key: FRONTEND_ORIGINS
         value: http://localhost:3000
+      - key: FIREBASE_DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
