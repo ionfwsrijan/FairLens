@@ -34,7 +34,10 @@ def append_audit_run(protected_attribute: str, audit: dict[str, Any], dataset: s
 
 
 def list_audit_runs() -> list[dict[str, Any]]:
-    return read_json_list(RUNS_PATH)
+    local = read_json_list(RUNS_PATH)
+    if local:
+        return local
+    return firebase_get_collection("audit_runs")
 
 
 def upsert_review(review: dict[str, Any]) -> dict[str, Any]:
@@ -58,7 +61,10 @@ def upsert_review(review: dict[str, Any]) -> dict[str, Any]:
 
 
 def list_reviews() -> list[dict[str, Any]]:
-    return read_json_list(REVIEWS_PATH)
+    local = read_json_list(REVIEWS_PATH)
+    if local:
+        return local
+    return firebase_get_collection("reviews")
 
 
 def read_json_list(path: Path) -> list[dict[str, Any]]:
@@ -95,6 +101,26 @@ def firebase_put(path: str, payload: dict[str, Any]) -> None:
     except Exception:
         # Firebase sync is optional. Local JSON remains the source of truth for free demos.
         return
+
+
+def firebase_get_collection(path: str) -> list[dict[str, Any]]:
+    database_url = os.getenv("FIREBASE_DATABASE_URL", "").rstrip("/")
+    if not database_url:
+        return []
+    try:
+        endpoint = f"{database_url}/fairlens/{path}.json"
+        secret = os.getenv("FIREBASE_DATABASE_SECRET")
+        if secret:
+            endpoint = f"{endpoint}?auth={urllib.parse.quote(secret)}"
+        with urllib.request.urlopen(endpoint, timeout=8) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        if isinstance(payload, dict):
+            return [item for item in payload.values() if isinstance(item, dict)]
+        if isinstance(payload, list):
+            return [item for item in payload if isinstance(item, dict)]
+    except Exception:
+        return []
+    return []
 
 
 def safe_key(value: str) -> str:
