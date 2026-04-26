@@ -9,6 +9,8 @@ The stack is intentionally more production-grade than a notebook or Streamlit MV
 - **ML:** scikit-learn preprocessing and logistic classifier
 - **Fairness:** Fairlearn demographic parity and equalized odds metrics, plus ThresholdOptimizer mitigation
 - **Explainability:** SHAP for global feature attribution, with a deterministic coefficient fallback if SHAP is unavailable
+- **Google product:** Optional Gemini API report generation through Google AI Studio free tier
+- **Persistence:** Local JSON by default, optional Firebase Realtime Database REST sync
 
 ## Product Flow
 
@@ -18,30 +20,36 @@ The stack is intentionally more production-grade than a notebook or Streamlit MV
 4. **Decision Review:** representative real held-out records with local explanations for human oversight.
 5. **Mitigation Lab:** Fairlearn before/after comparison across accuracy, demographic parity, equalized odds, and group selection rates.
 6. **Governance Hub:** model card, review workflow, policy checks, evidence pack, and printable report.
+7. **AI Report:** local or Gemini-powered governance narrative with printable/exportable HTML report.
+8. **Custom Audit:** upload/paste your own CSV prediction data and audit protected-group outcomes.
+9. **Monitoring:** audit history and a simulated monthly drift monitor.
+10. **Pitch Room:** judge-ready problem, solution, Google product, and impact story.
+
+## Real Datasets
+
+- **UCI Adult Income:** income eligibility fairness by gender or race.
+- **Statlog German Credit:** credit-risk fairness by gender or age group.
+
+Both are real historical datasets. No generated training rows are used.
 
 ## Quick Start
 
 From the project root:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
-cd frontend
-npm install --legacy-peer-deps
+.\scripts\setup.ps1
 ```
 
 Start the backend:
 
 ```powershell
-cd backend
-..\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
+.\scripts\run_backend.ps1
 ```
 
 Start the frontend in a second terminal:
 
 ```powershell
-cd frontend
-npm run dev
+.\scripts\run_frontend.ps1
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
@@ -92,6 +100,7 @@ Create a Render Web Service from this repo:
 - Instance type: `Free`
 - Health check path: `/api/health`
 - Optional env var: `GEMINI_API_KEY=<your Google AI Studio API key>`
+- Optional env var: `FIREBASE_DATABASE_URL=<your Firebase Realtime Database URL>`
 
 #### Frontend on Vercel Hobby
 
@@ -132,6 +141,20 @@ FairLens uses Google in a no-paid way through the optional Gemini API free tier:
 4. Click **Try Gemini report**.
 
 If the key is missing or quota is exhausted, FairLens automatically falls back to its local deterministic report generator.
+
+## Optional Firebase Sync
+
+By default, reviews and audit runs are stored in `.cache/fairlens/*.json`. To sync them to Firebase Realtime Database free tier, set:
+
+```env
+FIREBASE_DATABASE_URL=https://your-project-default-rtdb.firebaseio.com
+```
+
+If your database rules require a secret/token, also set:
+
+```env
+FIREBASE_DATABASE_SECRET=your_secret_or_token
+```
 
 ## Data
 
