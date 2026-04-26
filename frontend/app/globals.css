@@ -121,6 +121,30 @@ button {
   border-top: 1px solid var(--line);
 }
 
+.sidebar-controls {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.sidebar-controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.sidebar-controls select {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 8px 10px;
+  font: inherit;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -178,6 +202,7 @@ h2 {
 .top-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -486,7 +511,8 @@ h2 {
 .action-stack,
 .report-meta,
 .form-grid,
-.history-grid {
+.history-grid,
+.drift-grid {
   display: grid;
   gap: 10px;
 }
@@ -658,7 +684,7 @@ h2 {
 }
 
 .action-stack {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   margin-top: 18px;
 }
 
@@ -721,6 +747,10 @@ h2 {
   margin: 12px 0 0;
   color: var(--red);
   font-weight: 780;
+}
+
+.secondary-action {
+  margin-top: 10px;
 }
 
 .decision-grid {
@@ -829,7 +859,12 @@ h2 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.history-card {
+.drift-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.history-card,
+.drift-card {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -837,19 +872,58 @@ h2 {
   padding: 14px;
 }
 
-.history-card > span {
+.history-card > span,
+.drift-card span {
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 850;
 }
 
-.history-card > strong {
+.history-card > strong,
+.drift-card > strong {
   display: block;
   margin: 6px 0 12px;
 }
 
+.drift-card .track {
+  height: 10px;
+  margin: 10px 0 6px;
+}
+
+.mitigated-track div {
+  background: var(--green);
+}
+
 .architecture-card {
   min-height: 190px;
+}
+
+.pitch-hero {
+  border: 1px solid rgba(15, 139, 141, 0.22);
+  border-radius: 8px;
+  background:
+    linear-gradient(120deg, rgba(15, 139, 141, 0.15), rgba(108, 99, 183, 0.08)),
+    var(--surface);
+  box-shadow: var(--shadow);
+  padding: 32px;
+}
+
+.pitch-hero h2 {
+  max-width: 900px;
+  margin-bottom: 12px;
+  font-size: 2rem;
+}
+
+.pitch-hero p:last-child,
+.pitch-card h2 {
+  max-width: 900px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.pitch-card h2 {
+  font-size: 1.2rem;
+  font-weight: 780;
 }
 
 .compact-button {
@@ -1136,7 +1210,8 @@ h2 {
   .category-grid,
   .decision-grid,
   .case-columns,
-  .history-grid {
+  .history-grid,
+  .drift-grid {
     grid-template-columns: 1fr;
   }
 }

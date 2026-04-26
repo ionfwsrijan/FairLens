@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
-type ProtectedAttribute = "sex" | "race";
+type DatasetKey = "adult" | "german_credit";
+type ProtectedAttribute = "sex" | "race" | "age_group";
 type ViewKey =
   | "command"
   | "data"
@@ -13,7 +14,8 @@ type ViewKey =
   | "report"
   | "custom"
   | "monitoring"
-  | "architecture";
+  | "architecture"
+  | "pitch";
 
 type GroupMetric = {
   group: string;
@@ -84,6 +86,7 @@ type PolicyCheck = {
 type AuditResponse = {
   generated_at: string;
   dataset: {
+    key: DatasetKey;
     name: string;
     source: string;
     target: string;
@@ -94,6 +97,7 @@ type AuditResponse = {
     raw_features: number;
     model_features: number;
     protected_attribute: ProtectedAttribute;
+    supported_protected_attributes: ProtectedAttribute[];
     protected_groups: { group: string; count: number; share: number }[];
     excluded_from_training: string[];
     profile: {
@@ -193,6 +197,7 @@ type CustomAuditResponse = {
 type AuditRun = {
   id: string;
   created_at: string;
+  dataset?: string;
   protected_attribute: string;
   accuracy: number;
   bias_gap: number;
@@ -201,6 +206,17 @@ type AuditRun = {
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+const datasetOptions: {
+  key: DatasetKey;
+  label: string;
+  protectedAttributes: ProtectedAttribute[];
+}[] = [
+  { key: "adult", label: "Adult Income", protectedAttributes: ["sex", "race"] },
+  { key: "german_credit", label: "German Credit", protectedAttributes: ["sex", "age_group"] }
+];
+
+const roleOptions = ["Executive", "ML Engineer", "Compliance Reviewer", "Auditor"] as const;
 
 const views: { key: ViewKey; label: string; kicker: string }[] = [
   { key: "command", label: "Command Center", kicker: "Executive view" },
@@ -212,8 +228,11 @@ const views: { key: ViewKey; label: string; kicker: string }[] = [
   { key: "report", label: "AI Report", kicker: "Gemini optional" },
   { key: "custom", label: "Custom Audit", kicker: "Upload CSV" },
   { key: "monitoring", label: "Monitoring", kicker: "Audit history" },
-  { key: "architecture", label: "Free Architecture", kicker: "Zero-cost path" }
+  { key: "architecture", label: "Free Architecture", kicker: "Zero-cost path" },
+  { key: "pitch", label: "Pitch Room", kicker: "Submission story" }
 ];
+
+const demoSequence: ViewKey[] = ["pitch", "command", "audit", "mitigation", "report", "cases", "architecture"];
 
 function percent(value: number | null | undefined, digits = 1) {
   if (value === null || value === undefined || Number.isNaN(value)) return "n/a";
@@ -235,8 +254,16 @@ function compactNumber(value: number) {
   return new Intl.NumberFormat("en", { notation: "compact" }).format(value);
 }
 
+function attributeLabel(attribute: ProtectedAttribute) {
+  if (attribute === "sex") return "Gender";
+  if (attribute === "race") return "Race";
+  return "Age group";
+}
+
 export default function Home() {
+  const [datasetKey, setDatasetKey] = useState<DatasetKey>("adult");
   const [protectedAttribute, setProtectedAttribute] = useState<ProtectedAttribute>("sex");
+  const [role, setRole] = useState<(typeof roleOptions)[number]>("Executive");
   const [activeView, setActiveView] = useState<ViewKey>("command");
   const [data, setData] = useState<AuditResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -244,10 +271,18 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [mitigationVisible, setMitigationVisible] = useState(true);
   const [selectedCase, setSelectedCase] = useState(0);
+  const [demoStep, setDemoStep] = useState(0);
 
   useEffect(() => {
     void loadAudit(false);
-  }, [protectedAttribute]);
+  }, [protectedAttribute, datasetKey]);
+
+  useEffect(() => {
+    const selectedDataset = datasetOptions.find((item) => item.key === datasetKey);
+    if (selectedDataset && !selectedDataset.protectedAttributes.includes(protectedAttribute)) {
+      setProtectedAttribute(selectedDataset.protectedAttributes[0]);
+    }
+  }, [datasetKey, protectedAttribute]);
 
   async function loadAudit(forceRefresh: boolean) {
     setLoading(!data);
@@ -256,7 +291,7 @@ export default function Home() {
     setSelectedCase(0);
     try {
       const response = await fetch(
-        `${API_URL}/api/audit?protected_attribute=${protectedAttribute}&force_refresh=${forceRefresh}`
+        `${API_URL}/api/audit?dataset=${datasetKey}&protected_attribute=${protectedAttribute}&force_refresh=${forceRefresh}`
       );
       if (!response.ok) {
         const details = await response.json().catch(() => null);
@@ -282,6 +317,8 @@ export default function Home() {
     }).format(new Date(data.generated_at));
   }, [data?.generated_at]);
 
+  const activeDataset = datasetOptions.find((item) => item.key === datasetKey) ?? datasetOptions[0];
+
   return (
     <main className="shell app-shell">
       <aside className="sidebar">
@@ -306,6 +343,24 @@ export default function Home() {
           ))}
         </nav>
 
+        <div className="sidebar-controls">
+          <label>
+            Role
+            <select value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
+              {roleOptions.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
+            </select>
+          </label>
+          <button className="primary-button full-button" onClick={() => {
+            const next = (demoStep + 1) % demoSequence.length;
+            setDemoStep(next);
+            setActiveView(demoSequence[next]);
+          }}>
+            Judge demo step {demoStep + 1}
+          </button>
+        </div>
+
         <div className="sidebar-footer">
           <span>Dataset</span>
           <strong>{data?.dataset.name ?? "UCI Adult Income"}</strong>
@@ -319,19 +374,27 @@ export default function Home() {
             <h2>{activeViewTitle(activeView)}</h2>
           </div>
           <div className="top-actions">
+            <div className="segmented" aria-label="Dataset">
+              {datasetOptions.map((dataset) => (
+                <button
+                  key={dataset.key}
+                  className={datasetKey === dataset.key ? "active" : ""}
+                  onClick={() => setDatasetKey(dataset.key)}
+                >
+                  {dataset.label}
+                </button>
+              ))}
+            </div>
             <div className="segmented" aria-label="Protected attribute">
-              <button
-                className={protectedAttribute === "sex" ? "active" : ""}
-                onClick={() => setProtectedAttribute("sex")}
-              >
-                Gender
-              </button>
-              <button
-                className={protectedAttribute === "race" ? "active" : ""}
-                onClick={() => setProtectedAttribute("race")}
-              >
-                Race
-              </button>
+              {activeDataset.protectedAttributes.map((attribute) => (
+                <button
+                  key={attribute}
+                  className={protectedAttribute === attribute ? "active" : ""}
+                  onClick={() => setProtectedAttribute(attribute)}
+                >
+                  {attributeLabel(attribute)}
+                </button>
+              ))}
             </div>
             <button className="ghost-button" onClick={() => loadAudit(true)} disabled={refreshing}>
               {refreshing ? "Auditing" : "Re-run audit"}
@@ -370,10 +433,17 @@ export default function Home() {
               />
             )}
             {activeView === "governance" && <GovernanceHub data={data} />}
-            {activeView === "report" && <AIReportCenter data={data} protectedAttribute={protectedAttribute} />}
+            {activeView === "report" && (
+              <AIReportCenter
+                data={data}
+                datasetKey={datasetKey}
+                protectedAttribute={protectedAttribute}
+              />
+            )}
             {activeView === "custom" && <CustomAuditLab />}
             {activeView === "monitoring" && <MonitoringCenter data={data} />}
             {activeView === "architecture" && <FreeArchitecture />}
+            {activeView === "pitch" && <PitchRoom />}
           </>
         ) : null}
       </section>
@@ -869,9 +939,11 @@ function GovernanceHub({ data }: { data: AuditResponse }) {
 
 function AIReportCenter({
   data,
+  datasetKey,
   protectedAttribute
 }: {
   data: AuditResponse;
+  datasetKey: DatasetKey;
   protectedAttribute: ProtectedAttribute;
 }) {
   const [report, setReport] = useState<GovernanceReport | null>(null);
@@ -882,7 +954,9 @@ function AIReportCenter({
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/report?protected_attribute=${protectedAttribute}&use_ai=${useAi}`);
+      const response = await fetch(
+        `/api/report?dataset=${datasetKey}&protected_attribute=${protectedAttribute}&use_ai=${useAi}`
+      );
       if (!response.ok) {
         const details = await response.json().catch(() => null);
         throw new Error(details?.detail ?? "Report generation failed.");
@@ -893,6 +967,18 @@ function AIReportCenter({
     } finally {
       setLoading(false);
     }
+  }
+
+  function downloadReport() {
+    if (!report) return;
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>FairLens Report</title><style>body{font-family:Arial,sans-serif;max-width:860px;margin:40px auto;line-height:1.6;color:#172026}h1,h2{color:#08686a}</style></head><body><h1>FairLens AI Governance Report</h1>${report.sections.map((section) => `<h2>${section.title}</h2><p>${section.body}</p>`).join("")}</body></html>`;
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "fairlens-governance-report.html";
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   useEffect(() => {
@@ -920,6 +1006,9 @@ function AIReportCenter({
           </button>
           <button className="ghost-button" onClick={() => window.print()}>
             Print report
+          </button>
+          <button className="ghost-button" onClick={downloadReport} disabled={!report}>
+            Export HTML
           </button>
         </div>
         {error && <p className="form-error">{error}</p>}
@@ -1010,6 +1099,16 @@ function CustomAuditLab() {
     setCsvText(await file.text());
   }
 
+  function downloadSampleCsv() {
+    const blob = new Blob([csvText], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "fairlens-sample-audit.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <section className="tab-grid">
       <article className="panel span-5">
@@ -1028,6 +1127,9 @@ function CustomAuditLab() {
         </div>
         <button className="primary-button full-button" onClick={runUploadAudit} disabled={loading}>
           {loading ? "Auditing" : "Run uploaded audit"}
+        </button>
+        <button className="ghost-button full-button secondary-action" onClick={downloadSampleCsv}>
+          Download sample CSV
         </button>
         {error && <p className="form-error">{error}</p>}
       </article>
@@ -1103,6 +1205,12 @@ function MonitoringCenter({ data }: { data: AuditResponse }) {
           risk_level: data.risk.level
         }
       ];
+  const simulation = [
+    { month: "Jan", baseline: data.baseline.demographic_parity_difference * 0.82, mitigated: data.mitigated.demographic_parity_difference * 1.1 },
+    { month: "Feb", baseline: data.baseline.demographic_parity_difference * 0.94, mitigated: data.mitigated.demographic_parity_difference * 1.3 },
+    { month: "Mar", baseline: data.baseline.demographic_parity_difference * 1.08, mitigated: data.mitigated.demographic_parity_difference * 1.8 },
+    { month: "Apr", baseline: data.baseline.demographic_parity_difference * 1.18, mitigated: data.mitigated.demographic_parity_difference * 2.2 },
+  ];
 
   return (
     <section className="tab-grid">
@@ -1122,6 +1230,26 @@ function MonitoringCenter({ data }: { data: AuditResponse }) {
               <div className="mini-row"><span>Baseline gap</span><em>{percent(run.bias_gap)}</em></div>
               <div className="mini-row"><span>Mitigated gap</span><em>{percent(run.mitigated_bias_gap)}</em></div>
               <div className="mini-row"><span>Accuracy</span><em>{percent(run.accuracy)}</em></div>
+            </div>
+          ))}
+        </div>
+      </article>
+      <article className="panel span-12">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Synthetic monitoring simulation</p>
+            <h2>Monthly drift scenario from held-out audit behavior</h2>
+          </div>
+          <span className="status-chip danger">Drift watch</span>
+        </div>
+        <div className="drift-grid">
+          {simulation.map((item) => (
+            <div className="drift-card" key={item.month}>
+              <strong>{item.month}</strong>
+              <div className="track"><div style={{ width: `${Math.min(item.baseline * 260, 100)}%` }} /></div>
+              <span>Baseline gap {percent(item.baseline)}</span>
+              <div className="track mitigated-track"><div style={{ width: `${Math.min(item.mitigated * 260, 100)}%` }} /></div>
+              <span>Mitigated gap {percent(item.mitigated)}</span>
             </div>
           ))}
         </div>
@@ -1177,6 +1305,63 @@ function FreeArchitecture() {
           <p>{card.body}</p>
         </article>
       ))}
+    </section>
+  );
+}
+
+function PitchRoom() {
+  const story = [
+    {
+      title: "Problem",
+      body: "High-stakes AI systems can appear accurate while quietly distributing opportunities unfairly across protected groups."
+    },
+    {
+      title: "Solution",
+      body: "FairLens audits real historical data, explains proxy risk, mitigates measurable disparities, and packages the evidence for human review."
+    },
+    {
+      title: "Google product",
+      body: "The optional Gemini API turns raw fairness metrics into an executive governance report while preserving a free local fallback."
+    },
+    {
+      title: "Impact",
+      body: "Teams get a practical workflow for catching bias before deployment and monitoring it after launch."
+    }
+  ];
+
+  return (
+    <section className="tab-grid">
+      <article className="pitch-hero span-12">
+        <div>
+          <p className="eyebrow">Hackathon narrative</p>
+          <h2>FairLens is an AI governance copilot for high-stakes decisions.</h2>
+          <p>
+            It transforms fairness from a hidden notebook metric into a product workflow:
+            audit, explain, mitigate, review, report, and monitor.
+          </p>
+        </div>
+      </article>
+      {story.map((item) => (
+        <article className="panel span-6 pitch-card" key={item.title}>
+          <p className="eyebrow">{item.title}</p>
+          <h2>{item.body}</h2>
+        </article>
+      ))}
+      <article className="panel span-12">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">90-second judge flow</p>
+            <h2>Use the Judge demo button in the sidebar to walk through the story.</h2>
+          </div>
+        </div>
+        <div className="evidence-list">
+          <div>Show unfair baseline risk in Command Center</div>
+          <div>Show SHAP proxy-risk evidence in Audit Workbench</div>
+          <div>Show before/after mitigation in Mitigation Lab</div>
+          <div>Generate the AI Governance Report with optional Gemini</div>
+          <div>Save a human review note and finish on Free Architecture</div>
+        </div>
+      </article>
     </section>
   );
 }
