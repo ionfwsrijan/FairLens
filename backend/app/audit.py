@@ -32,9 +32,12 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
 RANDOM_STATE = 42
-SUPPORTED_PROTECTED_ATTRIBUTES = ("sex", "race")
-PROTECTED_COLUMNS = ("sex", "race")
-POSITIVE_LABEL = ">50K"
+SUPPORTED_DATASETS = ("adult", "german_credit")
+SUPPORTED_PROTECTED_ATTRIBUTES = ("sex", "race", "age_group")
+ADULT_PROTECTED_COLUMNS = ("sex", "race")
+GERMAN_PROTECTED_COLUMNS = ("sex", "age_group", "personal_status_sex")
+ADULT_POSITIVE_LABEL = ">50K"
+GERMAN_POSITIVE_LABEL = "Good credit risk"
 
 ROOT = Path(os.getenv("FAIRLENS_ROOT", Path(__file__).resolve().parents[2])).resolve()
 CACHE_DIR = ROOT / ".cache" / "fairlens"
@@ -57,6 +60,30 @@ ADULT_COLUMNS = [
     "income",
 ]
 
+GERMAN_CREDIT_COLUMNS = [
+    "checking_status",
+    "duration_months",
+    "credit_history",
+    "purpose",
+    "credit_amount",
+    "savings_status",
+    "employment_since",
+    "installment_rate",
+    "personal_status_sex",
+    "other_debtors",
+    "residence_since",
+    "property",
+    "age",
+    "other_installment_plans",
+    "housing",
+    "existing_credits",
+    "job",
+    "people_liable",
+    "telephone",
+    "foreign_worker",
+    "credit_risk",
+]
+
 PROXY_RISK_FEATURES = {
     "relationship": "High",
     "marital-status": "High",
@@ -70,13 +97,17 @@ PROXY_RISK_FEATURES = {
 }
 
 
-def run_audit(protected_attribute: str = "sex", force_refresh: bool = False) -> dict[str, Any]:
-    if protected_attribute not in SUPPORTED_PROTECTED_ATTRIBUTES:
-        supported = ", ".join(SUPPORTED_PROTECTED_ATTRIBUTES)
-        raise ValueError(f"Unsupported protected attribute '{protected_attribute}'. Use one of: {supported}.")
+def run_audit(
+    protected_attribute: str = "sex",
+    force_refresh: bool = False,
+    dataset_key: str = "adult",
+) -> dict[str, Any]:
+    if dataset_key not in SUPPORTED_DATASETS:
+        supported = ", ".join(SUPPORTED_DATASETS)
+        raise ValueError(f"Unsupported dataset '{dataset_key}'. Use one of: {supported}.")
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    cache_path = CACHE_DIR / f"adult_audit_{protected_attribute}.json"
+    cache_path = CACHE_DIR / f"{dataset_key}_audit_{protected_attribute}.json"
     if cache_path.exists() and not force_refresh:
         with cache_path.open("r", encoding="utf-8") as handle:
             cached = json.load(handle)
@@ -84,13 +115,20 @@ def run_audit(protected_attribute: str = "sex", force_refresh: bool = False) -> 
             cached["cache"] = {"hit": True, "path": str(cache_path)}
             return cached
 
-    X_raw, y, source = load_adult_dataset()
+    X_raw, y, source, metadata = load_dataset(dataset_key)
+    if protected_attribute not in metadata["protected_attributes"]:
+        supported = ", ".join(metadata["protected_attributes"])
+        raise ValueError(
+            f"Unsupported protected attribute '{protected_attribute}' for {metadata['name']}. "
+            f"Use one of: {supported}."
+        )
     X_raw = clean_adult_features(X_raw)
-    y = normalize_target(y)
     X_raw, y = align_non_null_rows(X_raw, y)
 
     sensitive = X_raw[protected_attribute].astype(str).replace({"?": "Unknown"})
-    model_features = X_raw.drop(columns=[column for column in PROTECTED_COLUMNS if column in X_raw.columns])
+    model_features = X_raw.drop(
+        columns=[column for column in metadata["protected_exclusions"] if column in X_raw.columns]
+    )
 
     X_train, X_temp, y_train, y_temp, A_train, A_temp = train_test_split(
         model_features,
@@ -138,14 +176,22 @@ def run_audit(protected_attribute: str = "sex", force_refresh: bool = False) -> 
     mitigated_metrics = compute_metrics(y_test, mitigated_pred, A_test)
     explainability = build_explainability(baseline_model, X_test)
     segments = build_slice_diagnostics(X_test, y_test, baseline_pred, A_test)
-    decision_cases = build_decision_cases(baseline_model, X_test, y_test, A_test, baseline_proba)
+    decision_cases = build_decision_cases(
+        baseline_model,
+        X_test,
+        y_test,
+        A_test,
+        baseline_proba,
+        positive_label=metadata["positive_label"],
+    )
 
     result = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "dataset": {
-            "name": "UCI Adult Income",
+            "key": dataset_key,
+            "name": metadata["name"],
             "source": source,
-            "target": "Predict whether annual income is greater than $50K",
+            "target": metadata["target"],
             "rows": int(len(X_raw)),
             "training_rows": int(len(X_train)),
             "calibration_rows": int(len(X_cal)),
@@ -153,14 +199,17 @@ def run_audit(protected_attribute: str = "sex", force_refresh: bool = False) -> 
             "raw_features": int(X_raw.shape[1]),
             "model_features": int(model_features.shape[1]),
             "protected_attribute": protected_attribute,
+            "supported_protected_attributes": metadata["protected_attributes"],
             "protected_groups": group_counts(sensitive),
-            "excluded_from_training": [column for column in PROTECTED_COLUMNS if column in X_raw.columns],
+            "excluded_from_training": [
+                column for column in metadata["protected_exclusions"] if column in X_raw.columns
+            ],
             "profile": build_dataset_profile(X_raw, y, protected_attribute),
         },
         "model": {
             "baseline": "LogisticRegression with one-hot encoded categorical features and standardized numeric features",
             "mitigation": "Fairlearn ThresholdOptimizer constrained by demographic parity",
-            "positive_outcome": POSITIVE_LABEL,
+            "positive_outcome": metadata["positive_label"],
             "fairness_position": "Protected attributes are excluded from training and used only for audit and mitigation.",
         },
         "baseline": baseline_metrics,
@@ -170,7 +219,7 @@ def run_audit(protected_attribute: str = "sex", force_refresh: bool = False) -> 
         "segments": segments,
         "decision_cases": decision_cases,
         "policy": build_policy_checks(baseline_metrics, mitigated_metrics),
-        "governance": build_governance_package(protected_attribute),
+        "governance": build_governance_package(protected_attribute, metadata),
         "risk": build_risk_summary(baseline_metrics, mitigated_metrics, protected_attribute),
         "cache": {"hit": False, "path": str(cache_path)},
     }
@@ -185,12 +234,38 @@ def is_current_cache(payload: dict[str, Any]) -> bool:
     return all(
         [
             "profile" in payload.get("dataset", {}),
+            "key" in payload.get("dataset", {}),
+            "supported_protected_attributes" in payload.get("dataset", {}),
             "segments" in payload,
             "decision_cases" in payload,
             "policy" in payload,
             "governance" in payload,
         ]
     )
+
+
+def load_dataset(dataset_key: str) -> tuple[pd.DataFrame, pd.Series, str, dict[str, Any]]:
+    if dataset_key == "adult":
+        X, y, source = load_adult_dataset()
+        return X, normalize_adult_target(y), source, {
+            "name": "UCI Adult Income",
+            "target": "Predict whether annual income is greater than $50K",
+            "positive_label": ADULT_POSITIVE_LABEL,
+            "protected_attributes": ["sex", "race"],
+            "protected_exclusions": list(ADULT_PROTECTED_COLUMNS),
+            "use_case": "Income eligibility risk screening",
+        }
+    if dataset_key == "german_credit":
+        X, y, source = load_german_credit_dataset()
+        return X, y, source, {
+            "name": "Statlog German Credit",
+            "target": "Predict whether a credit applicant is a good credit risk",
+            "positive_label": GERMAN_POSITIVE_LABEL,
+            "protected_attributes": ["sex", "age_group"],
+            "protected_exclusions": list(GERMAN_PROTECTED_COLUMNS),
+            "use_case": "Credit risk screening",
+        }
+    raise ValueError(f"Unsupported dataset '{dataset_key}'.")
 
 
 def load_adult_dataset() -> tuple[pd.DataFrame, pd.Series, str]:
@@ -241,6 +316,34 @@ def load_uci_adult_dataset() -> tuple[pd.DataFrame, pd.Series, str]:
     return X, y, "UCI Machine Learning Repository"
 
 
+def load_german_credit_dataset() -> tuple[pd.DataFrame, pd.Series, str]:
+    data_dir = CACHE_DIR / "german-credit"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    data_path = ensure_cached_download(
+        "https://archive.ics.uci.edu/ml/machine-learning-databases/statlog/german/german.data",
+        data_dir / "german.data",
+    )
+    frame = pd.read_csv(
+        data_path,
+        names=GERMAN_CREDIT_COLUMNS,
+        sep=r"\s+",
+        engine="python",
+    )
+    frame["sex"] = frame["personal_status_sex"].map(
+        {
+            "A91": "Male",
+            "A92": "Female",
+            "A93": "Male",
+            "A94": "Male",
+            "A95": "Female/Unknown",
+        }
+    ).fillna("Unknown")
+    frame["age_group"] = np.where(frame["age"] >= 25, "25 and older", "Under 25")
+    y = frame["credit_risk"].astype(int).eq(1).astype(int)
+    X = frame.drop(columns=["credit_risk"])
+    return X, y, "UCI Machine Learning Repository"
+
+
 def ensure_cached_download(url: str, path: Path) -> Path:
     if path.exists() and path.stat().st_size > 0:
         return path
@@ -277,7 +380,7 @@ def clean_adult_features(X: pd.DataFrame) -> pd.DataFrame:
     return X
 
 
-def normalize_target(y: pd.Series) -> pd.Series:
+def normalize_adult_target(y: pd.Series) -> pd.Series:
     if pd.api.types.is_bool_dtype(y):
         return y.astype(int)
     if pd.api.types.is_numeric_dtype(y):
@@ -286,7 +389,7 @@ def normalize_target(y: pd.Series) -> pd.Series:
             return y.astype(int)
 
     normalized = pd.Series(y).astype(str).str.replace(".", "", regex=False).str.strip()
-    return normalized.eq(POSITIVE_LABEL).astype(int)
+    return normalized.eq(ADULT_POSITIVE_LABEL).astype(int)
 
 
 def align_non_null_rows(X: pd.DataFrame, y: pd.Series) -> tuple[pd.DataFrame, pd.Series]:
@@ -454,11 +557,22 @@ def build_dataset_profile(
             }
         )
 
+    preferred_numeric = [
+        "age",
+        "education-num",
+        "hours-per-week",
+        "capital-gain",
+        "capital-loss",
+        "duration_months",
+        "credit_amount",
+        "installment_rate",
+        "existing_credits",
+    ]
     numeric_features = [
         feature
-        for feature in ["age", "education-num", "hours-per-week", "capital-gain", "capital-loss"]
-        if feature in X_raw.columns
-    ]
+        for feature in preferred_numeric
+        if feature in X_raw.select_dtypes(include=["number"]).columns
+    ][:6]
     numeric_profile = [
         {
             "feature": feature,
@@ -470,7 +584,20 @@ def build_dataset_profile(
     ]
 
     categorical_profile = []
-    for feature in ["workclass", "education", "occupation", "relationship", "native-country"]:
+    preferred_categorical = [
+        "workclass",
+        "education",
+        "occupation",
+        "relationship",
+        "native-country",
+        "checking_status",
+        "credit_history",
+        "purpose",
+        "savings_status",
+        "employment_since",
+        "housing",
+    ]
+    for feature in [item for item in preferred_categorical if item in X_raw.columns][:6]:
         if feature not in X_raw.columns:
             continue
         counts = X_raw[feature].astype(str).value_counts().head(5)
@@ -527,12 +654,29 @@ def build_slice_diagnostics(
             labels=["<30", "30-39", "40", "41-49", "50+"],
             include_lowest=True,
         ).astype(str)
+    if "credit_amount" in frame.columns:
+        frame["credit_amount_band"] = pd.qcut(
+            frame["credit_amount"],
+            q=4,
+            duplicates="drop",
+        ).astype(str)
 
     overall_selection = float(frame["__pred__"].mean())
     diagnostics: list[dict[str, Any]] = []
     slice_columns = [
         column
-        for column in ["age_band", "hours_band", "education", "relationship", "occupation"]
+        for column in [
+            "age_band",
+            "hours_band",
+            "credit_amount_band",
+            "education",
+            "relationship",
+            "occupation",
+            "checking_status",
+            "credit_history",
+            "purpose",
+            "housing",
+        ]
         if column in frame.columns
     ]
 
@@ -566,6 +710,7 @@ def build_decision_cases(
     y_true: pd.Series,
     sensitive: pd.Series,
     probabilities: np.ndarray,
+    positive_label: str,
 ) -> list[dict[str, Any]]:
     X_view = X_test.reset_index(drop=True)
     y_values = np.asarray(y_true).astype(int)
@@ -604,7 +749,7 @@ def build_decision_cases(
                 "protected_group": str(groups.iloc[index]),
                 "probability": safe_float(probabilities[index]),
                 "prediction": "Approved" if predictions[index] == 1 else "Denied",
-                "actual_outcome": POSITIVE_LABEL if y_values[index] == 1 else "<=50K",
+                "actual_outcome": positive_label if y_values[index] == 1 else "Negative outcome",
                 "attributes": summarize_case_attributes(row),
                 "local_explanation": build_local_explanation(model, row.to_frame().T),
             }
@@ -625,6 +770,15 @@ def summarize_case_attributes(row: pd.Series) -> list[dict[str, Any]]:
         "capital-gain",
         "capital-loss",
         "native-country",
+        "duration_months",
+        "credit_amount",
+        "checking_status",
+        "credit_history",
+        "purpose",
+        "savings_status",
+        "employment_since",
+        "housing",
+        "job",
     ]
     return [
         {"label": field, "value": clean_json_value(row[field])}
@@ -805,11 +959,11 @@ def build_policy_checks(baseline: dict[str, Any], mitigated: dict[str, Any]) -> 
     return checks
 
 
-def build_governance_package(protected_attribute: str) -> dict[str, Any]:
+def build_governance_package(protected_attribute: str, metadata: dict[str, Any]) -> dict[str, Any]:
     return {
         "model_card": [
-            {"label": "Use case", "value": "Income eligibility risk screening on Adult census records"},
-            {"label": "Dataset", "value": "UCI Adult Income, real historical census-derived records"},
+            {"label": "Use case", "value": metadata["use_case"]},
+            {"label": "Dataset", "value": f"{metadata['name']}, real historical records"},
             {"label": "Protected audit field", "value": protected_attribute},
             {"label": "Mitigation method", "value": "Fairlearn ThresholdOptimizer with demographic parity constraint"},
             {"label": "Human oversight", "value": "Required for all borderline denials and policy check failures"},

@@ -39,15 +39,20 @@ def health() -> dict[str, str]:
 
 @app.get("/api/audit")
 def audit(
-    protected_attribute: Literal["sex", "race"] = Query(
+    dataset: Literal["adult", "german_credit"] = Query("adult", description="Real dataset to audit."),
+    protected_attribute: Literal["sex", "race", "age_group"] = Query(
         "sex", description="Protected attribute to audit."
     ),
     force_refresh: bool = Query(False, description="Recompute instead of using the cache."),
 ) -> dict:
     try:
-        result = run_audit(protected_attribute=protected_attribute, force_refresh=force_refresh)
+        result = run_audit(
+            protected_attribute=protected_attribute,
+            force_refresh=force_refresh,
+            dataset_key=dataset,
+        )
         if force_refresh:
-            append_audit_run(protected_attribute, result)
+            append_audit_run(protected_attribute, result, dataset)
         return result
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -55,11 +60,16 @@ def audit(
 
 @app.get("/api/report")
 def report(
-    protected_attribute: Literal["sex", "race"] = Query("sex"),
+    dataset: Literal["adult", "german_credit"] = Query("adult"),
+    protected_attribute: Literal["sex", "race", "age_group"] = Query("sex"),
     use_ai: bool = Query(False, description="Use Gemini API when GEMINI_API_KEY is configured."),
 ) -> dict:
     try:
-        audit_result = run_audit(protected_attribute=protected_attribute, force_refresh=False)
+        audit_result = run_audit(
+            protected_attribute=protected_attribute,
+            force_refresh=False,
+            dataset_key=dataset,
+        )
         return build_governance_report(audit_result, use_ai=use_ai)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
