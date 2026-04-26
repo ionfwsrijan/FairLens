@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import socket
 import urllib.request
 import warnings
@@ -35,7 +36,7 @@ SUPPORTED_PROTECTED_ATTRIBUTES = ("sex", "race")
 PROTECTED_COLUMNS = ("sex", "race")
 POSITIVE_LABEL = ">50K"
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(os.getenv("FAIRLENS_ROOT", Path(__file__).resolve().parents[2])).resolve()
 CACHE_DIR = ROOT / ".cache" / "fairlens"
 
 ADULT_COLUMNS = [
