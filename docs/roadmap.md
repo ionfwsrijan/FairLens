@@ -17,7 +17,7 @@
    Let teams upload predictions/probabilities and protected attributes, then run FairLens without retraining their model.
 
 3. **Exportable compliance report**
-   Generate a signed PDF/HTML report containing metrics, charts, model card, mitigation choice, and reviewer sign-off.
+   Generate a signed PDF/HTML report containing metrics, charts, model card, mitigation choice, reviewer sign-off, and optional Gemini-written executive summary.
 
 4. **Human review workflow**
    Add case assignment, reviewer notes, decision override reason codes, and audit logs.

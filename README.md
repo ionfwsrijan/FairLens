@@ -72,6 +72,40 @@ Then open `http://localhost:3000`.
 
 ## Deployment
 
+### Free-First Deployment
+
+For strict no-paid mode, use:
+
+- **Frontend:** Vercel Hobby plan
+- **Backend:** Render Free Web Service
+- **Google product:** Gemini API free tier through Google AI Studio, optional via `GEMINI_API_KEY`
+
+This avoids requiring a billing-enabled Google Cloud project for the default demo.
+
+#### Backend on Render Free
+
+Create a Render Web Service from this repo:
+
+- Root directory: `backend`
+- Build command: `pip install -r requirements.txt`
+- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Instance type: `Free`
+- Health check path: `/api/health`
+- Optional env var: `GEMINI_API_KEY=<your Google AI Studio API key>`
+
+#### Frontend on Vercel Hobby
+
+Create a Vercel project from this repo:
+
+- Root directory: `frontend`
+- Install command: `npm install --legacy-peer-deps`
+- Build command: `npm run build`
+- Environment variable: `FAIRLENS_API_URL=<your Render backend URL>`
+
+### Optional Google Cloud Run Deployment
+
+Cloud Run is still a strong Google Cloud story, but it can require Cloud Billing setup. Use it only if you are comfortable with that. Otherwise, keep the no-paid Vercel + Render path above.
+
 Deploy FairLens as two services:
 
 1. **Backend API service**
@@ -87,6 +121,17 @@ Deploy FairLens as two services:
    - Environment variable: `FAIRLENS_API_URL=<your deployed backend URL>`
 
 Render, Railway, Fly.io, or Google Cloud Run all work well with this split. For Google hackathon demos, Google Cloud Run is the most on-theme option: deploy the backend container first, copy its service URL, then deploy the frontend with `FAIRLENS_API_URL` set to that backend URL.
+
+## Free Google Product Integration
+
+FairLens uses Google in a no-paid way through the optional Gemini API free tier:
+
+1. Create an API key in Google AI Studio.
+2. Set `GEMINI_API_KEY` on the backend service.
+3. Open the **AI Report** workspace.
+4. Click **Try Gemini report**.
+
+If the key is missing or quota is exhausted, FairLens automatically falls back to its local deterministic report generator.
 
 ## Data
 
