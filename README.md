@@ -55,7 +55,7 @@ npm run build
 npm run start
 ```
 
-The frontend runs on `http://localhost:3000` and expects the backend at `http://localhost:8000` unless `NEXT_PUBLIC_API_URL` is changed.
+The frontend runs on `http://localhost:3000`. Its internal API proxy expects the backend at `http://localhost:8000` unless `FAIRLENS_API_URL` is changed.
 
 ## Docker Run
 
@@ -81,9 +81,9 @@ Deploy FairLens as two services:
    - Root directory: `frontend`
    - Build command: `npm ci --legacy-peer-deps && npm run build`
    - Start command: `npm run start`
-   - Environment variable: `NEXT_PUBLIC_API_URL=<your deployed backend URL>`
+   - Environment variable: `FAIRLENS_API_URL=<your deployed backend URL>`
 
-Render, Railway, Fly.io, or Google Cloud Run all work well with this split. For Google hackathon demos, Google Cloud Run is the most on-theme option: deploy the backend container first, copy its service URL, then deploy the frontend with `NEXT_PUBLIC_API_URL` set to that backend URL.
+Render, Railway, Fly.io, or Google Cloud Run all work well with this split. For Google hackathon demos, Google Cloud Run is the most on-theme option: deploy the backend container first, copy its service URL, then deploy the frontend with `FAIRLENS_API_URL` set to that backend URL.
 
 ## Data
 
