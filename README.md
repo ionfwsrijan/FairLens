@@ -12,9 +12,12 @@ The stack is intentionally more production-grade than a notebook or Streamlit MV
 
 ## Product Flow
 
-1. **Baseline Model:** trains a standard model without protected attributes and shows the disparity that remains through proxy features.
-2. **FairLens Audit:** surfaces SHAP-ranked decision drivers and flags proxy-risk features such as relationship status, working hours, and marital status.
-3. **Mitigation Scorecard:** applies Fairlearn post-processing and compares accuracy, demographic parity gap, equalized odds, selection rates, and group outcomes before and after mitigation.
+1. **Command Center:** executive fairness risk cockpit with policy gate status.
+2. **Data Room:** real Adult Income dataset profile, base rates, feature distributions, and data-quality checks.
+3. **Audit Workbench:** SHAP-ranked feature drivers, proxy-risk triage, and segment diagnostics.
+4. **Decision Review:** representative real held-out records with local explanations for human oversight.
+5. **Mitigation Lab:** Fairlearn before/after comparison across accuracy, demographic parity, equalized odds, and group selection rates.
+6. **Governance Hub:** model card, review workflow, policy checks, evidence pack, and printable report.
 
 ## Quick Start
 
