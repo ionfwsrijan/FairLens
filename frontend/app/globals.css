@@ -482,7 +482,11 @@ h2 {
 .model-card-list,
 .workflow,
 .evidence-list,
-.policy-table {
+.policy-table,
+.action-stack,
+.report-meta,
+.form-grid,
+.history-grid {
   display: grid;
   gap: 10px;
 }
@@ -608,6 +612,117 @@ h2 {
   font-size: 1rem;
 }
 
+.report-preview section {
+  padding: 0 0 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.report-preview section:last-child {
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+
+.report-preview h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.report-preview p,
+.architecture-card p {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.report-meta {
+  margin-top: 18px;
+}
+
+.report-meta div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.report-meta span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.report-meta strong {
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.action-stack {
+  grid-template-columns: 1fr 1fr;
+  margin-top: 18px;
+}
+
+.form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.form-grid label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.form-grid input,
+.form-grid select,
+.csv-box,
+.note-box {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.form-grid input,
+.form-grid select {
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.file-input {
+  grid-column: span 2;
+}
+
+.csv-box {
+  min-height: 330px;
+  padding: 14px;
+  resize: vertical;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.note-box {
+  min-height: 96px;
+  padding: 12px;
+  resize: vertical;
+  margin-bottom: 12px;
+}
+
+.full-button {
+  width: 100%;
+}
+
+.form-error {
+  margin: 12px 0 0;
+  color: var(--red);
+  font-weight: 780;
+}
+
 .decision-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -619,6 +734,16 @@ h2 {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
   gap: 18px;
+}
+
+.review-box {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.compact-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .attribute-grid {
@@ -698,6 +823,33 @@ h2 {
   justify-content: flex-start;
   color: var(--ink);
   font-weight: 780;
+}
+
+.history-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.history-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 14px;
+}
+
+.history-card > span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.history-card > strong {
+  display: block;
+  margin: 6px 0 12px;
+}
+
+.architecture-card {
+  min-height: 190px;
 }
 
 .compact-button {
@@ -983,7 +1135,8 @@ h2 {
 
   .category-grid,
   .decision-grid,
-  .case-columns {
+  .case-columns,
+  .history-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -1002,8 +1155,14 @@ h2 {
   }
 
   .workspace-nav,
-  .attribute-grid {
+  .attribute-grid,
+  .form-grid,
+  .action-stack {
     grid-template-columns: 1fr;
+  }
+
+  .file-input {
+    grid-column: auto;
   }
 
   .segmented {

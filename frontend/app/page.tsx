@@ -3,7 +3,17 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 type ProtectedAttribute = "sex" | "race";
-type ViewKey = "command" | "data" | "audit" | "cases" | "mitigation" | "governance";
+type ViewKey =
+  | "command"
+  | "data"
+  | "audit"
+  | "cases"
+  | "mitigation"
+  | "governance"
+  | "report"
+  | "custom"
+  | "monitoring"
+  | "architecture";
 
 type GroupMetric = {
   group: string;
@@ -148,6 +158,48 @@ type AuditResponse = {
   };
 };
 
+type GovernanceReport = {
+  generated_at: string;
+  source: string;
+  google_product: string;
+  free_first: boolean;
+  ai: {
+    enabled: boolean;
+    provider: string;
+    model?: string;
+    reason?: string;
+  };
+  sections: { title: string; body: string }[];
+  markdown: string;
+};
+
+type CustomAuditResponse = {
+  dataset: {
+    name: string;
+    rows: number;
+    columns: string[];
+    protected_attribute: string;
+    prediction_column: string;
+    actual_column: string;
+    probability_column: string | null;
+    protected_groups: { group: string; count: number; share: number }[];
+  };
+  metrics: ModelMetrics;
+  probability_summary: { mean: number | null; median: number | null; p90: number | null } | null;
+  risk: { level: string; message: string };
+  policy: { name: string; target: string; value: number; status: "Pass" | "Review" }[];
+};
+
+type AuditRun = {
+  id: string;
+  created_at: string;
+  protected_attribute: string;
+  accuracy: number;
+  bias_gap: number;
+  mitigated_bias_gap: number;
+  risk_level: string;
+};
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 const views: { key: ViewKey; label: string; kicker: string }[] = [
@@ -156,7 +208,11 @@ const views: { key: ViewKey; label: string; kicker: string }[] = [
   { key: "audit", label: "Audit Workbench", kicker: "Bias and proxies" },
   { key: "cases", label: "Decision Review", kicker: "Human oversight" },
   { key: "mitigation", label: "Mitigation Lab", kicker: "Before and after" },
-  { key: "governance", label: "Governance", kicker: "Model card" }
+  { key: "governance", label: "Governance", kicker: "Model card" },
+  { key: "report", label: "AI Report", kicker: "Gemini optional" },
+  { key: "custom", label: "Custom Audit", kicker: "Upload CSV" },
+  { key: "monitoring", label: "Monitoring", kicker: "Audit history" },
+  { key: "architecture", label: "Free Architecture", kicker: "Zero-cost path" }
 ];
 
 function percent(value: number | null | undefined, digits = 1) {
@@ -314,6 +370,10 @@ export default function Home() {
               />
             )}
             {activeView === "governance" && <GovernanceHub data={data} />}
+            {activeView === "report" && <AIReportCenter data={data} protectedAttribute={protectedAttribute} />}
+            {activeView === "custom" && <CustomAuditLab />}
+            {activeView === "monitoring" && <MonitoringCenter data={data} />}
+            {activeView === "architecture" && <FreeArchitecture />}
           </>
         ) : null}
       </section>
@@ -545,6 +605,27 @@ function DecisionReview({
   setSelectedCase: (value: number) => void;
 }) {
   const activeCase = data.decision_cases[selectedCase] ?? data.decision_cases[0];
+  const [reviewStatus, setReviewStatus] = useState("Needs review");
+  const [reviewDecision, setReviewDecision] = useState("Pending");
+  const [reviewNote, setReviewNote] = useState("");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+
+  async function saveReview() {
+    setSaveState("saving");
+    await fetch("/api/reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        case_id: activeCase.id,
+        status: reviewStatus,
+        decision: reviewDecision,
+        note: reviewNote,
+        reviewer: "Hackathon reviewer"
+      })
+    });
+    setSaveState("saved");
+    setTimeout(() => setSaveState("idle"), 1500);
+  }
 
   return (
     <section className="tab-grid">
@@ -610,6 +691,37 @@ function DecisionReview({
               ))}
             </div>
           </div>
+        </div>
+
+        <div className="review-box">
+          <h3>Reviewer action</h3>
+          <div className="form-grid compact-form">
+            <label>Status
+              <select value={reviewStatus} onChange={(event) => setReviewStatus(event.target.value)}>
+                <option>Needs review</option>
+                <option>Escalated</option>
+                <option>Approved for mitigation</option>
+                <option>Closed</option>
+              </select>
+            </label>
+            <label>Decision
+              <select value={reviewDecision} onChange={(event) => setReviewDecision(event.target.value)}>
+                <option>Pending</option>
+                <option>Uphold decision</option>
+                <option>Override decision</option>
+                <option>Request more evidence</option>
+              </select>
+            </label>
+          </div>
+          <textarea
+            className="note-box"
+            value={reviewNote}
+            onChange={(event) => setReviewNote(event.target.value)}
+            placeholder="Add reviewer note for the audit trail"
+          />
+          <button className="primary-button" onClick={saveReview}>
+            {saveState === "saving" ? "Saving" : saveState === "saved" ? "Saved" : "Save review"}
+          </button>
         </div>
       </article>
     </section>
@@ -751,6 +863,320 @@ function GovernanceHub({ data }: { data: AuditResponse }) {
           ))}
         </div>
       </article>
+    </section>
+  );
+}
+
+function AIReportCenter({
+  data,
+  protectedAttribute
+}: {
+  data: AuditResponse;
+  protectedAttribute: ProtectedAttribute;
+}) {
+  const [report, setReport] = useState<GovernanceReport | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadReport(useAi: boolean) {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/report?protected_attribute=${protectedAttribute}&use_ai=${useAi}`);
+      if (!response.ok) {
+        const details = await response.json().catch(() => null);
+        throw new Error(details?.detail ?? "Report generation failed.");
+      }
+      setReport((await response.json()) as GovernanceReport);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Report generation failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadReport(false);
+  }, [protectedAttribute]);
+
+  const activeReport = report;
+
+  return (
+    <section className="tab-grid">
+      <article className="panel span-5">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Free-first Google AI</p>
+            <h2>Governance report generator</h2>
+          </div>
+        </div>
+        <p className="insight-copy">
+          FairLens creates a polished local report for free. Add a Google AI Studio Gemini API key
+          on the backend to unlock the optional Gemini-written version without changing the UI.
+        </p>
+        <div className="action-stack">
+          <button className="primary-button" onClick={() => loadReport(true)} disabled={loading}>
+            {loading ? "Generating" : "Try Gemini report"}
+          </button>
+          <button className="ghost-button" onClick={() => window.print()}>
+            Print report
+          </button>
+        </div>
+        {error && <p className="form-error">{error}</p>}
+        {activeReport && (
+          <div className="report-meta">
+            <div><span>Source</span><strong>{activeReport.source}</strong></div>
+            <div><span>Google product</span><strong>{activeReport.google_product}</strong></div>
+            <div><span>AI status</span><strong>{activeReport.ai.enabled ? "Gemini enabled" : "Local free mode"}</strong></div>
+            {activeReport.ai.reason && <div><span>Note</span><strong>{activeReport.ai.reason}</strong></div>}
+          </div>
+        )}
+      </article>
+
+      <article className="panel span-7 report-preview">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Judge-ready narrative</p>
+            <h2>AI governance report</h2>
+          </div>
+          <span className="status-chip good">Free mode safe</span>
+        </div>
+        {(activeReport?.sections ?? []).map((section) => (
+          <section key={section.title}>
+            <h3>{section.title}</h3>
+            <p>{section.body}</p>
+          </section>
+        ))}
+      </article>
+
+      <article className="panel span-12">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Metrics behind the report</p>
+            <h2>Evidence still comes from the audited model</h2>
+          </div>
+        </div>
+        <div className="decision-grid">
+          <MetricCard label="Baseline gap" value={percent(data.baseline.demographic_parity_difference)} delta="Measured disparity" tone="danger" />
+          <MetricCard label="Mitigated gap" value={percent(data.mitigated.demographic_parity_difference)} delta="FairLens policy" tone="good" />
+          <MetricCard label="Accuracy" value={percent(data.mitigated.accuracy)} delta="After mitigation" />
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function CustomAuditLab() {
+  const [csvText, setCsvText] = useState(
+    "sex,prediction,actual,probability\nMale,1,1,0.81\nFemale,0,1,0.42\nMale,1,0,0.73\nFemale,0,0,0.21\nFemale,1,1,0.66\nMale,1,1,0.91\n"
+  );
+  const [protectedColumn, setProtectedColumn] = useState("sex");
+  const [predictionColumn, setPredictionColumn] = useState("prediction");
+  const [actualColumn, setActualColumn] = useState("actual");
+  const [probabilityColumn, setProbabilityColumn] = useState("probability");
+  const [result, setResult] = useState<CustomAuditResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function runUploadAudit() {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/custom-audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          csv_text: csvText,
+          protected_attribute: protectedColumn,
+          prediction_column: predictionColumn,
+          actual_column: actualColumn,
+          probability_column: probabilityColumn || null
+        })
+      });
+      if (!response.ok) {
+        const details = await response.json().catch(() => null);
+        throw new Error(details?.detail ?? "Upload audit failed.");
+      }
+      setResult((await response.json()) as CustomAuditResponse);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Upload audit failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadFile(file: File | undefined) {
+    if (!file) return;
+    setCsvText(await file.text());
+  }
+
+  return (
+    <section className="tab-grid">
+      <article className="panel span-5">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Bring your own predictions</p>
+            <h2>CSV fairness audit</h2>
+          </div>
+        </div>
+        <div className="form-grid">
+          <label>Protected column<input value={protectedColumn} onChange={(event) => setProtectedColumn(event.target.value)} /></label>
+          <label>Prediction column<input value={predictionColumn} onChange={(event) => setPredictionColumn(event.target.value)} /></label>
+          <label>Actual column<input value={actualColumn} onChange={(event) => setActualColumn(event.target.value)} /></label>
+          <label>Probability column<input value={probabilityColumn} onChange={(event) => setProbabilityColumn(event.target.value)} /></label>
+          <label className="file-input">CSV file<input type="file" accept=".csv,text/csv" onChange={(event) => loadFile(event.target.files?.[0])} /></label>
+        </div>
+        <button className="primary-button full-button" onClick={runUploadAudit} disabled={loading}>
+          {loading ? "Auditing" : "Run uploaded audit"}
+        </button>
+        {error && <p className="form-error">{error}</p>}
+      </article>
+
+      <article className="panel span-7">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">CSV editor</p>
+            <h2>Paste or upload prediction data</h2>
+          </div>
+        </div>
+        <textarea value={csvText} onChange={(event) => setCsvText(event.target.value)} className="csv-box" />
+      </article>
+
+      {result && (
+        <>
+          <MetricCard label="Uploaded rows" value={compactNumber(result.dataset.rows)} delta="Audited records" />
+          <MetricCard label="Accuracy" value={percent(result.metrics.accuracy)} delta="Uploaded model" />
+          <MetricCard label="Parity gap" value={percent(result.metrics.demographic_parity_difference)} delta={result.risk.level} tone={result.risk.level === "High" ? "danger" : "neutral"} />
+          <article className="panel span-6">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Uploaded group outcomes</p>
+                <h2>{result.risk.message}</h2>
+              </div>
+            </div>
+            <GroupBars groups={result.metrics.by_group} />
+          </article>
+          <article className="panel span-6">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Policy gates</p>
+                <h2>Uploaded model controls</h2>
+              </div>
+            </div>
+            <div className="policy-table">
+              {result.policy.map((check) => (
+                <div key={check.name}>
+                  <strong>{check.name}</strong>
+                  <span>{check.target}</span>
+                  <span>{check.name.toLowerCase().includes("ratio") ? number(check.value, 2) : percent(check.value)}</span>
+                  <em className={check.status === "Pass" ? "good" : "watch"}>{check.status}</em>
+                </div>
+              ))}
+            </div>
+          </article>
+        </>
+      )}
+    </section>
+  );
+}
+
+function MonitoringCenter({ data }: { data: AuditResponse }) {
+  const [runs, setRuns] = useState<AuditRun[]>([]);
+
+  useEffect(() => {
+    fetch("/api/runs")
+      .then((response) => response.json())
+      .then((payload) => setRuns(payload.runs ?? []))
+      .catch(() => setRuns([]));
+  }, []);
+
+  const visibleRuns = runs.length
+    ? runs
+    : [
+        {
+          id: "current-demo-run",
+          created_at: data.generated_at,
+          protected_attribute: data.dataset.protected_attribute,
+          accuracy: data.baseline.accuracy,
+          bias_gap: data.baseline.demographic_parity_difference,
+          mitigated_bias_gap: data.mitigated.demographic_parity_difference,
+          risk_level: data.risk.level
+        }
+      ];
+
+  return (
+    <section className="tab-grid">
+      <article className="panel span-12">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Fairness drift monitor</p>
+            <h2>Audit history and mitigation trend</h2>
+          </div>
+          <span className="status-chip">Local free storage</span>
+        </div>
+        <div className="history-grid">
+          {visibleRuns.slice(-8).map((run) => (
+            <div className="history-card" key={run.id}>
+              <span>{new Date(run.created_at).toLocaleString()}</span>
+              <strong>{run.protected_attribute} audit</strong>
+              <div className="mini-row"><span>Baseline gap</span><em>{percent(run.bias_gap)}</em></div>
+              <div className="mini-row"><span>Mitigated gap</span><em>{percent(run.mitigated_bias_gap)}</em></div>
+              <div className="mini-row"><span>Accuracy</span><em>{percent(run.accuracy)}</em></div>
+            </div>
+          ))}
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function FreeArchitecture() {
+  const cards = [
+    {
+      title: "Frontend",
+      value: "Vercel Hobby",
+      body: "Free deployment for the Next.js dashboard. No paid Google Cloud dependency required."
+    },
+    {
+      title: "Backend",
+      value: "Render Free Web Service",
+      body: "Runs FastAPI fairness engine on a free instance. Cold starts are acceptable for a hackathon demo."
+    },
+    {
+      title: "Google product",
+      value: "Gemini API free tier",
+      body: "Optional AI report generation through Google AI Studio API key. Local report remains available without a key."
+    },
+    {
+      title: "Persistence",
+      value: "Local JSON first",
+      body: "Free local audit history and review notes. Firestore Spark can be a future free-tier option."
+    },
+    {
+      title: "Optional upgrade",
+      value: "Cloud Run",
+      body: "Cloud Run is a strong Google story, but it can require billing setup, so it stays optional for no-paid mode."
+    }
+  ];
+
+  return (
+    <section className="tab-grid">
+      <article className="panel span-12 narrative-panel">
+        <p className="eyebrow">Zero-cost deployment strategy</p>
+        <h2>Use Google where it helps the story, without forcing paid infrastructure.</h2>
+        <p>
+          The safest free hackathon path is Vercel for the web app, Render for the FastAPI backend,
+          and Google Gemini API free tier for the AI governance report. Cloud Run remains documented
+          as an optional Google Cloud deployment when billing is available.
+        </p>
+      </article>
+      {cards.map((card) => (
+        <article className="panel span-4 architecture-card" key={card.title}>
+          <p className="eyebrow">{card.title}</p>
+          <h2>{card.value}</h2>
+          <p>{card.body}</p>
+        </article>
+      ))}
     </section>
   );
 }
