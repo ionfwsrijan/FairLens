@@ -54,17 +54,6 @@ export default function LandingPage() {
           </div>
         </div>
       </main>
-
-      <footer className="footer">
-        <div className="footer-left">
-          <span>Real bias audits</span>
-          <span>Fairlearn mitigation</span>
-        </div>
-        <div className="footer-links">
-          <Link href="/dashboard">Dashboard</Link>
-          <Link href="/dashboard">Governance</Link>
-        </div>
-      </footer>
     </div>
   );
 }
