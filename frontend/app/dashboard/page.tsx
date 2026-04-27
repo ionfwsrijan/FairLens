@@ -209,6 +209,12 @@ type AuditRun = {
   risk_level: string;
 };
 
+type AuditRequestOptions = {
+  datasetKey?: DatasetKey;
+  protectedAttribute?: ProtectedAttribute;
+  signal?: AbortSignal;
+};
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 const datasetOptions: {
@@ -282,38 +288,62 @@ export default function Home() {
   const [mitigationVisible, setMitigationVisible] = useState(true);
   const [selectedCase, setSelectedCase] = useState(0);
   const [demoStep, setDemoStep] = useState(0);
+  const activeDataset = datasetOptions.find((item) => item.key === datasetKey) ?? datasetOptions[0];
+  const requestProtectedAttribute = activeDataset.protectedAttributes.includes(protectedAttribute)
+    ? protectedAttribute
+    : activeDataset.protectedAttributes[0];
 
   useEffect(() => {
-    void loadAudit(false);
-  }, [protectedAttribute, datasetKey]);
-
-  useEffect(() => {
-    const selectedDataset = datasetOptions.find((item) => item.key === datasetKey);
-    if (selectedDataset && !selectedDataset.protectedAttributes.includes(protectedAttribute)) {
-      setProtectedAttribute(selectedDataset.protectedAttributes[0]);
+    if (requestProtectedAttribute !== protectedAttribute) {
+      setProtectedAttribute(requestProtectedAttribute);
+      return;
     }
-  }, [datasetKey, protectedAttribute]);
 
-  async function loadAudit(forceRefresh: boolean) {
+    const controller = new AbortController();
+    void loadAudit(false, {
+      datasetKey,
+      protectedAttribute: requestProtectedAttribute,
+      signal: controller.signal
+    });
+
+    return () => controller.abort();
+  }, [protectedAttribute, datasetKey, requestProtectedAttribute]);
+
+  async function loadAudit(forceRefresh: boolean, options: AuditRequestOptions = {}) {
+    const auditDatasetKey = options.datasetKey ?? datasetKey;
+    const auditProtectedAttribute = options.protectedAttribute ?? requestProtectedAttribute;
     setLoading(!data);
     setRefreshing(Boolean(data));
     setError(null);
     setSelectedCase(0);
     try {
       const response = await fetch(
-        `${API_URL}/api/audit?dataset=${datasetKey}&protected_attribute=${protectedAttribute}&force_refresh=${forceRefresh}`
+        `${API_URL}/api/audit?dataset=${auditDatasetKey}&protected_attribute=${auditProtectedAttribute}&force_refresh=${forceRefresh}`,
+        { signal: options.signal }
       );
+      if (options.signal?.aborted) return;
       if (!response.ok) {
         const details = await response.json().catch(() => null);
         throw new Error(details?.detail ?? `API request failed with ${response.status}`);
       }
       const payload = (await response.json()) as AuditResponse;
+      if (options.signal?.aborted) return;
       setData(payload);
     } catch (requestError) {
+      if (requestError instanceof Error && requestError.name === "AbortError") return;
       setError(requestError instanceof Error ? requestError.message : "Unable to load audit.");
     } finally {
+      if (options.signal?.aborted) return;
       setLoading(false);
       setRefreshing(false);
+    }
+  }
+
+  function selectDataset(nextDatasetKey: DatasetKey) {
+    const nextDataset = datasetOptions.find((item) => item.key === nextDatasetKey) ?? datasetOptions[0];
+    setDatasetKey(nextDatasetKey);
+    if (!nextDataset.protectedAttributes.includes(protectedAttribute)) {
+      setProtectedAttribute(nextDataset.protectedAttributes[0]);
     }
   }
 
@@ -326,8 +356,6 @@ export default function Home() {
       minute: "2-digit"
     }).format(new Date(data.generated_at));
   }, [data?.generated_at]);
-
-  const activeDataset = datasetOptions.find((item) => item.key === datasetKey) ?? datasetOptions[0];
 
   return (
     <main className="shell app-shell">
@@ -390,7 +418,7 @@ export default function Home() {
                 <TabsTrigger
                   key={dataset.key}
                   active={datasetKey === dataset.key}
-                  onClick={() => setDatasetKey(dataset.key)}
+                  onClick={() => selectDataset(dataset.key)}
                 >
                   {dataset.label}
                 </TabsTrigger>
@@ -407,7 +435,16 @@ export default function Home() {
                 </TabsTrigger>
               ))}
             </TabsList>
-            <Button variant="secondary" onClick={() => loadAudit(true)} disabled={refreshing}>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                loadAudit(true, {
+                  datasetKey,
+                  protectedAttribute: requestProtectedAttribute
+                })
+              }
+              disabled={refreshing}
+            >
               {refreshing ? "Auditing" : "Re-run audit"}
             </Button>
           </div>
