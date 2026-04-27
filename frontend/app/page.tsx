@@ -55,12 +55,6 @@ export default function LandingPage() {
         </div>
       </main>
 
-      <div className="floating-action-bar" aria-label="Landing quick actions">
-        <Link href="/dashboard" className="action-btn active" aria-label="Start audit">01</Link>
-        <a href="#lens-preview" className="action-btn" aria-label="View lens preview">02</a>
-        <a href="#project-proof" className="action-btn" aria-label="View project summary">03</a>
-      </div>
-
       <footer className="footer">
         <div className="footer-left">
           <span>Real bias audits</span>
