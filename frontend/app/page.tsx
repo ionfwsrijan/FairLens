@@ -272,6 +272,7 @@ export default function Home() {
   const [mitigationVisible, setMitigationVisible] = useState(true);
   const [selectedCase, setSelectedCase] = useState(0);
   const [demoStep, setDemoStep] = useState(0);
+  const [hasEntered, setHasEntered] = useState(false);
 
   useEffect(() => {
     void loadAudit(false);
@@ -318,6 +319,10 @@ export default function Home() {
   }, [data?.generated_at]);
 
   const activeDataset = datasetOptions.find((item) => item.key === datasetKey) ?? datasetOptions[0];
+
+  if (!hasEntered) {
+    return <LandingPage data={data} loading={loading} onBegin={() => setHasEntered(true)} />;
+  }
 
   return (
     <main className="shell app-shell">
@@ -446,6 +451,121 @@ export default function Home() {
             {activeView === "pitch" && <PitchRoom />}
           </>
         ) : null}
+      </section>
+    </main>
+  );
+}
+
+function LandingPage({
+  data,
+  loading,
+  onBegin
+}: {
+  data: AuditResponse | null;
+  loading: boolean;
+  onBegin: () => void;
+}) {
+  const proofStats = [
+    {
+      label: "Real rows audited",
+      value: data ? compactNumber(data.dataset.rows) : "48K+",
+      note: data ? data.dataset.name : "UCI Adult Income"
+    },
+    {
+      label: "Bias gap found",
+      value: data ? percent(data.baseline.demographic_parity_difference) : "Live",
+      note: "Demographic parity"
+    },
+    {
+      label: "Mitigated gap",
+      value: data ? percent(data.mitigated.demographic_parity_difference) : "Ready",
+      note: "Fairlearn reduction"
+    }
+  ];
+
+  return (
+    <main className="landing-shell">
+      <nav className="landing-nav glass-panel" aria-label="FairLens introduction">
+        <div className="brand-lockup">
+          <div className="mark">FL</div>
+          <div>
+            <p className="eyebrow">Google hackathon build</p>
+            <strong>FairLens</strong>
+          </div>
+        </div>
+        <button className="ghost-button compact-button" onClick={onBegin}>
+          Open dashboard
+        </button>
+      </nav>
+
+      <section className="landing-hero">
+        <div className="landing-copy">
+          <p className="landing-kicker">Audit. Explain. Mitigate. Govern.</p>
+          <h1>Fair AI decisions, presented like a product judges can trust.</h1>
+          <p>
+            FairLens turns classic biased datasets into a live responsible-AI command center:
+            baseline risk, SHAP explainability, Fairlearn mitigation, human review, monitoring,
+            and a governance report in one polished flow.
+          </p>
+          <div className="landing-actions">
+            <button className="primary-button landing-cta" onClick={onBegin}>
+              Let&apos;s begin
+            </button>
+            <span>{loading ? "Preparing live audit" : "Live audit ready"}</span>
+          </div>
+        </div>
+
+        <div className="lens-showcase glass-panel" aria-label="FairLens live audit preview">
+          <div className="lens-header">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div className="lens-orbit">
+            <div className="lens-core">
+              <span>FairLens</span>
+              <strong>{data ? data.risk.level : "Live"}</strong>
+            </div>
+          </div>
+          <div className="lens-metrics">
+            <div>
+              <span>Baseline</span>
+              <strong>{data ? percent(data.baseline.accuracy) : "Model"}</strong>
+            </div>
+            <div>
+              <span>Mitigated</span>
+              <strong>{data ? percent(data.mitigated.accuracy) : "Fair"}</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-proof">
+        {proofStats.map((stat) => (
+          <article className="glass-panel proof-card" key={stat.label}>
+            <span>{stat.label}</span>
+            <strong>{stat.value}</strong>
+            <p>{stat.note}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="landing-flow glass-panel">
+        <div>
+          <span>01</span>
+          <strong>Expose unfair outcomes</strong>
+          <p>Measure selection-rate gaps across protected groups using real historical data.</p>
+        </div>
+        <div>
+          <span>02</span>
+          <strong>Explain hidden proxies</strong>
+          <p>Surface the features driving model behavior and flag high-risk proxy signals.</p>
+        </div>
+        <div>
+          <span>03</span>
+          <strong>Ship a governance story</strong>
+          <p>Compare before and after mitigation, then package the result for reviewers.</p>
+        </div>
       </section>
     </main>
   );

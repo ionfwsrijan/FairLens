@@ -54,6 +54,269 @@ button {
   padding: 24px 0 56px;
 }
 
+.landing-shell {
+  position: relative;
+  isolation: isolate;
+  width: min(1220px, calc(100% - 40px));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 24px 0 48px;
+}
+
+.landing-shell::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  background-image:
+    linear-gradient(rgba(196, 181, 253, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(196, 181, 253, 0.055) 1px, transparent 1px),
+    linear-gradient(120deg, rgba(124, 58, 237, 0.18), transparent 42%, rgba(167, 139, 250, 0.12));
+  background-size: 64px 64px, 64px 64px, 100% 100%;
+  mask-image: linear-gradient(180deg, #000 0 72%, transparent 100%);
+  pointer-events: none;
+}
+
+.glass-panel {
+  border: 1px solid rgba(216, 202, 255, 0.24);
+  background:
+    linear-gradient(135deg, rgba(82, 39, 159, 0.56), rgba(32, 14, 67, 0.68)),
+    rgba(20, 12, 35, 0.62);
+  box-shadow: var(--purple-glow), var(--shadow);
+  backdrop-filter: blur(22px);
+}
+
+.landing-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 74px;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.landing-nav strong {
+  display: block;
+  font-size: 1.08rem;
+}
+
+.landing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+  gap: 28px;
+  align-items: center;
+  min-height: calc(100vh - 278px);
+  padding: 56px 0 28px;
+}
+
+.landing-copy {
+  max-width: 760px;
+}
+
+.landing-kicker {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  margin-bottom: 18px;
+  border: 1px solid rgba(216, 202, 255, 0.32);
+  border-radius: 999px;
+  background: rgba(50, 25, 100, 0.58);
+  color: var(--teal-dark);
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.landing-copy h1 {
+  max-width: 900px;
+  margin-bottom: 20px;
+  font-size: clamp(3.2rem, 7vw, 6.8rem);
+  line-height: 0.93;
+}
+
+.landing-copy > p:not(.landing-kicker) {
+  max-width: 690px;
+  margin-bottom: 28px;
+  color: #d9d0ed;
+  font-size: 1.08rem;
+  line-height: 1.75;
+}
+
+.landing-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.landing-actions span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.landing-cta {
+  min-height: 52px;
+  padding: 0 28px;
+  font-size: 1rem;
+}
+
+.lens-showcase {
+  position: relative;
+  overflow: hidden;
+  min-height: 520px;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.lens-showcase::before,
+.lens-showcase::after {
+  position: absolute;
+  inset: 18px;
+  content: "";
+  border: 1px solid rgba(216, 202, 255, 0.12);
+  pointer-events: none;
+}
+
+.lens-showcase::after {
+  inset: 54px;
+}
+
+.lens-header {
+  display: flex;
+  gap: 7px;
+  position: relative;
+  z-index: 1;
+}
+
+.lens-header span {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #c4b5fd;
+  box-shadow: 0 0 18px rgba(196, 181, 253, 0.7);
+}
+
+.lens-orbit {
+  display: grid;
+  width: min(360px, 82%);
+  aspect-ratio: 1;
+  place-items: center;
+  margin: 64px auto 34px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, rgba(5, 4, 8, 0.96) 0 38%, transparent 39%),
+    conic-gradient(from 120deg, #c4b5fd, #7c3aed, #24124a, #a78bfa, #c4b5fd);
+  box-shadow: 0 0 70px rgba(124, 58, 237, 0.34);
+}
+
+.lens-core {
+  display: grid;
+  width: 56%;
+  aspect-ratio: 1;
+  place-items: center;
+  align-content: center;
+  border: 1px solid rgba(216, 202, 255, 0.24);
+  border-radius: 50%;
+  background:
+    linear-gradient(180deg, rgba(50, 25, 100, 0.94), rgba(16, 8, 32, 0.98)),
+    var(--panel-strong);
+  text-align: center;
+}
+
+.lens-core span,
+.lens-metrics span,
+.proof-card span,
+.landing-flow span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.lens-core strong {
+  margin-top: 8px;
+  color: #fff;
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.lens-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.lens-metrics div {
+  min-height: 104px;
+  border: 1px solid rgba(216, 202, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(80, 36, 158, 0.44);
+  padding: 16px;
+}
+
+.lens-metrics strong {
+  display: block;
+  margin-top: 12px;
+  font-size: 1.8rem;
+}
+
+.landing-proof {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.proof-card {
+  min-height: 142px;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.proof-card strong {
+  display: block;
+  margin: 14px 0 10px;
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.proof-card p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-weight: 760;
+}
+
+.landing-flow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  margin-top: 14px;
+  border-radius: 8px;
+}
+
+.landing-flow div {
+  min-height: 170px;
+  background: rgba(38, 18, 79, 0.58);
+  padding: 20px;
+}
+
+.landing-flow strong {
+  display: block;
+  margin: 14px 0 10px;
+  font-size: 1rem;
+}
+
+.landing-flow p {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
@@ -1230,6 +1493,20 @@ textarea:focus-visible {
 }
 
 @media (max-width: 1050px) {
+  .landing-hero,
+  .landing-proof,
+  .landing-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-hero {
+    min-height: auto;
+  }
+
+  .lens-showcase {
+    min-height: 440px;
+  }
+
   .app-shell {
     grid-template-columns: 1fr;
   }
@@ -1271,6 +1548,48 @@ textarea:focus-visible {
 }
 
 @media (max-width: 760px) {
+  .landing-shell {
+    width: min(100% - 24px, 1220px);
+    padding-top: 14px;
+  }
+
+  .landing-nav,
+  .landing-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .landing-nav .ghost-button,
+  .landing-cta {
+    width: 100%;
+  }
+
+  .landing-hero {
+    gap: 18px;
+    padding: 34px 0 18px;
+  }
+
+  .landing-copy h1 {
+    font-size: 3rem;
+  }
+
+  .landing-copy > p:not(.landing-kicker) {
+    font-size: 1rem;
+  }
+
+  .lens-showcase {
+    min-height: 390px;
+  }
+
+  .lens-orbit {
+    width: min(280px, 88%);
+    margin-top: 46px;
+  }
+
+  .lens-metrics {
+    grid-template-columns: 1fr;
+  }
+
   .shell {
     width: min(100% - 24px, 1440px);
     padding-top: 14px;
