@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { Card } from "../../components/ui/card";
+import { TabsList, TabsTrigger } from "../../components/ui/tabs";
 
 type DatasetKey = "adult" | "german_credit";
 type ProtectedAttribute = "sex" | "race" | "age_group";
@@ -260,6 +264,12 @@ function attributeLabel(attribute: ProtectedAttribute) {
   return "Age group";
 }
 
+function riskBadgeVariant(value: string) {
+  if (value === "High") return "danger";
+  if (value === "Medium") return "warning";
+  return "success";
+}
+
 export default function Home() {
   const [datasetKey, setDatasetKey] = useState<DatasetKey>("adult");
   const [protectedAttribute, setProtectedAttribute] = useState<ProtectedAttribute>("sex");
@@ -332,14 +342,15 @@ export default function Home() {
 
         <nav className="workspace-nav" aria-label="FairLens workspaces">
           {views.map((view) => (
-            <button
+            <Button
               key={view.key}
               className={activeView === view.key ? "active" : ""}
               onClick={() => setActiveView(view.key)}
+              variant="nav"
             >
               <span>{view.kicker}</span>
               <strong>{view.label}</strong>
-            </button>
+            </Button>
           ))}
         </nav>
 
@@ -352,13 +363,13 @@ export default function Home() {
               ))}
             </select>
           </label>
-          <button className="primary-button full-button" onClick={() => {
+          <Button className="full-button" onClick={() => {
             const next = (demoStep + 1) % demoSequence.length;
             setDemoStep(next);
             setActiveView(demoSequence[next]);
           }}>
             Judge demo step {demoStep + 1}
-          </button>
+          </Button>
         </div>
 
         <div className="sidebar-footer">
@@ -374,31 +385,31 @@ export default function Home() {
             <h2>{activeViewTitle(activeView)}</h2>
           </div>
           <div className="top-actions">
-            <div className="segmented" aria-label="Dataset">
+            <TabsList className="segmented" aria-label="Dataset">
               {datasetOptions.map((dataset) => (
-                <button
+                <TabsTrigger
                   key={dataset.key}
-                  className={datasetKey === dataset.key ? "active" : ""}
+                  active={datasetKey === dataset.key}
                   onClick={() => setDatasetKey(dataset.key)}
                 >
                   {dataset.label}
-                </button>
+                </TabsTrigger>
               ))}
-            </div>
-            <div className="segmented" aria-label="Protected attribute">
+            </TabsList>
+            <TabsList className="segmented" aria-label="Protected attribute">
               {activeDataset.protectedAttributes.map((attribute) => (
-                <button
+                <TabsTrigger
                   key={attribute}
-                  className={protectedAttribute === attribute ? "active" : ""}
+                  active={protectedAttribute === attribute}
                   onClick={() => setProtectedAttribute(attribute)}
                 >
                   {attributeLabel(attribute)}
-                </button>
+                </TabsTrigger>
               ))}
-            </div>
-            <button className="ghost-button" onClick={() => loadAudit(true)} disabled={refreshing}>
+            </TabsList>
+            <Button variant="secondary" onClick={() => loadAudit(true)} disabled={refreshing}>
               {refreshing ? "Auditing" : "Re-run audit"}
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -514,7 +525,7 @@ function CommandCenter({ data }: { data: AuditResponse }) {
             <p className="eyebrow">Approval rates</p>
             <h2>Outcome distribution by protected group</h2>
           </div>
-          <span className="status-chip danger">Baseline</span>
+          <Badge className="status-chip" variant="danger">Baseline</Badge>
         </div>
         <GroupBars groups={data.baseline.by_group} />
       </article>
@@ -525,9 +536,12 @@ function CommandCenter({ data }: { data: AuditResponse }) {
             <p className="eyebrow">Policy gates</p>
             <h2>{passed} of {data.policy.length} checks passing</h2>
           </div>
-          <span className={passed === data.policy.length ? "status-chip good" : "status-chip danger"}>
+          <Badge
+            className="status-chip"
+            variant={passed === data.policy.length ? "success" : "danger"}
+          >
             {passed === data.policy.length ? "Ready" : "Review"}
-          </span>
+          </Badge>
         </div>
         <PolicyTable checks={data.policy} compact />
       </article>
@@ -628,7 +642,7 @@ function AuditWorkbench({ data }: { data: AuditResponse }) {
             <p className="eyebrow">{data.explainability.method}</p>
             <h2>Top decision drivers</h2>
           </div>
-          <span className="status-chip">n={data.explainability.sample_rows}</span>
+          <Badge className="status-chip">n={data.explainability.sample_rows}</Badge>
         </div>
         <FeatureBars features={data.explainability.top_features} />
       </article>
@@ -645,7 +659,9 @@ function AuditWorkbench({ data }: { data: AuditResponse }) {
           {data.explainability.top_features.slice(0, 7).map((feature) => (
             <div key={feature.feature}>
               <span>{feature.feature}</span>
-              <strong className={`risk-pill ${feature.proxy_risk.toLowerCase()}`}>{feature.proxy_risk}</strong>
+              <Badge className="risk-pill" variant={riskBadgeVariant(feature.proxy_risk)}>
+                {feature.proxy_risk}
+              </Badge>
             </div>
           ))}
         </div>
@@ -657,7 +673,7 @@ function AuditWorkbench({ data }: { data: AuditResponse }) {
             <p className="eyebrow">Slice monitor</p>
             <h2>Segments with the largest approval-rate shift</h2>
           </div>
-          <span className="status-chip danger">Needs review</span>
+          <Badge className="status-chip" variant="danger">Needs review</Badge>
         </div>
         <SegmentTable segments={data.segments} />
       </article>
@@ -727,9 +743,12 @@ function DecisionReview({
             <p className="eyebrow">{activeCase.review_reason}</p>
             <h2>{activeCase.id}: {activeCase.prediction}</h2>
           </div>
-          <span className={activeCase.prediction === "Denied" ? "status-chip danger" : "status-chip good"}>
+          <Badge
+            className="status-chip"
+            variant={activeCase.prediction === "Denied" ? "danger" : "success"}
+          >
             {activeCase.protected_group}
-          </span>
+          </Badge>
         </div>
 
         <div className="decision-grid">
@@ -789,9 +808,9 @@ function DecisionReview({
             onChange={(event) => setReviewNote(event.target.value)}
             placeholder="Add reviewer note for the audit trail"
           />
-          <button className="primary-button" onClick={saveReview}>
+          <Button onClick={saveReview}>
             {saveState === "saving" ? "Saving" : saveState === "saved" ? "Saved" : "Save review"}
-          </button>
+          </Button>
         </div>
       </article>
     </section>
@@ -818,9 +837,9 @@ function MitigationLab({
             while keeping the baseline classifier auditable.
           </p>
         </div>
-        <button className="primary-button" onClick={onToggle}>
+        <Button onClick={onToggle}>
           {visible ? "Hide comparison" : "Show comparison"}
-        </button>
+        </Button>
       </article>
 
       <article className="panel span-6 before-after-card">
@@ -856,7 +875,7 @@ function MitigationLab({
             <p className="eyebrow">Scorecard</p>
             <h2>Accuracy trade-off versus fairness gain</h2>
           </div>
-          <span className="status-chip good">{percent(data.comparison.bias_reduction)} bias reduction</span>
+          <Badge className="status-chip" variant="success">{percent(data.comparison.bias_reduction)} bias reduction</Badge>
         </div>
         <div className="scorecard">
           {data.comparison.scorecard.map((item) => (
@@ -877,9 +896,9 @@ function GovernanceHub({ data }: { data: AuditResponse }) {
             <p className="eyebrow">Model card</p>
             <h2>Deployment record</h2>
           </div>
-          <button className="ghost-button compact-button" onClick={() => window.print()}>
+          <Button className="compact-button" onClick={() => window.print()} size="sm" variant="secondary">
             Print report
-          </button>
+          </Button>
         </div>
         <div className="model-card-list">
           {data.governance.model_card.map((item) => (
@@ -1001,15 +1020,15 @@ function AIReportCenter({
           on the backend to unlock the optional Gemini-written version without changing the UI.
         </p>
         <div className="action-stack">
-          <button className="primary-button" onClick={() => loadReport(true)} disabled={loading}>
+          <Button onClick={() => loadReport(true)} disabled={loading}>
             {loading ? "Generating" : "Try Gemini report"}
-          </button>
-          <button className="ghost-button" onClick={() => window.print()}>
+          </Button>
+          <Button onClick={() => window.print()} variant="secondary">
             Print report
-          </button>
-          <button className="ghost-button" onClick={downloadReport} disabled={!report}>
+          </Button>
+          <Button onClick={downloadReport} disabled={!report} variant="secondary">
             Export HTML
-          </button>
+          </Button>
         </div>
         {error && <p className="form-error">{error}</p>}
         {activeReport && (
@@ -1028,7 +1047,7 @@ function AIReportCenter({
             <p className="eyebrow">Judge-ready narrative</p>
             <h2>AI governance report</h2>
           </div>
-          <span className="status-chip good">Free mode safe</span>
+          <Badge className="status-chip" variant="success">Free mode safe</Badge>
         </div>
         {(activeReport?.sections ?? []).map((section) => (
           <section key={section.title}>
@@ -1125,12 +1144,12 @@ function CustomAuditLab() {
           <label>Probability column<input value={probabilityColumn} onChange={(event) => setProbabilityColumn(event.target.value)} /></label>
           <label className="file-input">CSV file<input type="file" accept=".csv,text/csv" onChange={(event) => loadFile(event.target.files?.[0])} /></label>
         </div>
-        <button className="primary-button full-button" onClick={runUploadAudit} disabled={loading}>
+        <Button className="full-button" onClick={runUploadAudit} disabled={loading}>
           {loading ? "Auditing" : "Run uploaded audit"}
-        </button>
-        <button className="ghost-button full-button secondary-action" onClick={downloadSampleCsv}>
+        </Button>
+        <Button className="full-button secondary-action" onClick={downloadSampleCsv} variant="secondary">
           Download sample CSV
-        </button>
+        </Button>
         {error && <p className="form-error">{error}</p>}
       </article>
 
@@ -1220,7 +1239,7 @@ function MonitoringCenter({ data }: { data: AuditResponse }) {
             <p className="eyebrow">Fairness drift monitor</p>
             <h2>Audit history and mitigation trend</h2>
           </div>
-          <span className="status-chip">Local free storage</span>
+          <Badge className="status-chip">Local free storage</Badge>
         </div>
         <div className="history-grid">
           {visibleRuns.slice(-8).map((run) => (
@@ -1240,7 +1259,7 @@ function MonitoringCenter({ data }: { data: AuditResponse }) {
             <p className="eyebrow">Synthetic monitoring simulation</p>
             <h2>Monthly drift scenario from held-out audit behavior</h2>
           </div>
-          <span className="status-chip danger">Drift watch</span>
+          <Badge className="status-chip" variant="danger">Drift watch</Badge>
         </div>
         <div className="drift-grid">
           {simulation.map((item) => (
@@ -1378,11 +1397,11 @@ function MetricCard({
   tone?: "neutral" | "danger" | "good";
 }) {
   return (
-    <article className={`metric-card ${tone}`}>
+    <Card className={`metric-card ${tone}`} variant="metric">
       <p>{label}</p>
       <strong>{value}</strong>
       <span>{delta}</span>
-    </article>
+    </Card>
   );
 }
 
@@ -1446,7 +1465,9 @@ function FeatureBars({ features }: { features: ShapFeature[] }) {
         <div className="feature-row" key={feature.feature}>
           <div className="feature-meta">
             <strong>{feature.feature}</strong>
-            <span className={`risk-pill ${feature.proxy_risk.toLowerCase()}`}>{feature.proxy_risk}</span>
+            <Badge className="risk-pill" variant={riskBadgeVariant(feature.proxy_risk)}>
+              {feature.proxy_risk}
+            </Badge>
           </div>
           <div className="track feature-track">
             <div style={{ width: `${Math.max(feature.relative_importance * 100, 2).toFixed(2)}%` }} />
@@ -1475,9 +1496,9 @@ function SegmentTable({ segments }: { segments: SegmentDiagnostic[] }) {
           <span>{compactNumber(segment.count)}</span>
           <span>{percent(segment.selection_rate)}</span>
           <span>{signedPercent(segment.impact)}</span>
-          <em className={`risk-pill ${segment.priority === "High" ? "high" : segment.priority === "Medium" ? "medium" : "low"}`}>
+          <Badge className="risk-pill" variant={riskBadgeVariant(segment.priority)}>
             {segment.priority}
-          </em>
+          </Badge>
         </div>
       ))}
     </div>

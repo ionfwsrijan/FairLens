@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ButtonLink } from "../components/ui/button";
+import { Card } from "../components/ui/card";
 
 type LandingAudit = {
   dataset: {
@@ -87,9 +88,9 @@ export default function Home() {
             <strong>FairLens</strong>
           </div>
         </div>
-        <Link className="ghost-button compact-button" href="/dashboard">
+        <ButtonLink className="compact-button" href="/dashboard" size="sm" variant="secondary">
           Open dashboard
-        </Link>
+        </ButtonLink>
       </nav>
 
       <section className="landing-hero">
@@ -102,14 +103,14 @@ export default function Home() {
             and a governance report in one polished flow.
           </p>
           <div className="landing-actions">
-            <Link className="primary-button landing-cta" href="/dashboard">
+            <ButtonLink className="landing-cta" href="/dashboard" size="lg">
               Let&apos;s begin
-            </Link>
+            </ButtonLink>
             <span>{loading ? "Preparing live audit" : "Live audit ready"}</span>
           </div>
         </div>
 
-        <div className="lens-showcase glass-panel" aria-label="FairLens live audit preview">
+        <Card className="lens-showcase" variant="glass" aria-label="FairLens live audit preview">
           <div className="lens-header">
             <span />
             <span />
@@ -131,20 +132,20 @@ export default function Home() {
               <strong>{data ? percent(data.mitigated.accuracy) : "Fair"}</strong>
             </div>
           </div>
-        </div>
+        </Card>
       </section>
 
       <section className="landing-proof">
         {proofStats.map((stat) => (
-          <article className="glass-panel proof-card" key={stat.label}>
+          <Card className="proof-card" key={stat.label} variant="glass">
             <span>{stat.label}</span>
             <strong>{stat.value}</strong>
             <p>{stat.note}</p>
-          </article>
+          </Card>
         ))}
       </section>
 
-      <section className="landing-flow glass-panel">
+      <Card className="landing-flow" variant="glass">
         <div>
           <span>01</span>
           <strong>Expose unfair outcomes</strong>
@@ -160,7 +161,7 @@ export default function Home() {
           <strong>Ship a governance story</strong>
           <p>Compare before and after mitigation, then package the result for reviewers.</p>
         </div>
-      </section>
+      </Card>
     </main>
   );
 }
