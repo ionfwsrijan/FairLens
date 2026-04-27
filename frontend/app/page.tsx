@@ -1,167 +1,76 @@
-"use client";
+import './landing.css';
+import Image from 'next/image';
+import Link from 'next/link';
 
-import { useEffect, useState } from "react";
-import { ButtonLink } from "../components/ui/button";
-import { Card } from "../components/ui/card";
-
-type LandingAudit = {
-  dataset: {
-    name: string;
-    rows: number;
-  };
-  baseline: {
-    accuracy: number;
-    demographic_parity_difference: number;
-  };
-  mitigated: {
-    accuracy: number;
-    demographic_parity_difference: number;
-  };
-  risk: {
-    level: string;
-  };
-};
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-
-function percent(value: number | null | undefined, digits = 1) {
-  if (value === null || value === undefined || Number.isNaN(value)) return "n/a";
-  return `${(value * 100).toFixed(digits)}%`;
-}
-
-function compactNumber(value: number) {
-  return new Intl.NumberFormat("en", { notation: "compact" }).format(value);
-}
-
-export default function Home() {
-  const [data, setData] = useState<LandingAudit | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadPreview() {
-      try {
-        const response = await fetch(`${API_URL}/api/audit?dataset=adult&protected_attribute=sex`);
-        if (!response.ok) return;
-        const payload = (await response.json()) as LandingAudit;
-        if (active) setData(payload);
-      } catch {
-        if (active) setData(null);
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-
-    void loadPreview();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const proofStats = [
-    {
-      label: "Real rows audited",
-      value: data ? compactNumber(data.dataset.rows) : "48K+",
-      note: data ? data.dataset.name : "UCI Adult Income"
-    },
-    {
-      label: "Bias gap found",
-      value: data ? percent(data.baseline.demographic_parity_difference) : "Live",
-      note: "Demographic parity"
-    },
-    {
-      label: "Mitigated gap",
-      value: data ? percent(data.mitigated.demographic_parity_difference) : "Ready",
-      note: "Fairlearn reduction"
-    }
-  ];
-
+export default function LandingPage() {
   return (
-    <main className="landing-shell">
-      <nav className="landing-nav glass-panel" aria-label="FairLens introduction">
-        <div className="brand-lockup">
-          <div className="mark">FL</div>
-          <div>
-            <p className="eyebrow">Google hackathon build</p>
-            <strong>FairLens</strong>
-          </div>
-        </div>
-        <ButtonLink className="compact-button" href="/dashboard" size="sm" variant="secondary">
-          Open dashboard
-        </ButtonLink>
-      </nav>
+    <div className="landing-container">
+      {/* Background */}
+      <div className="background-image">
+        <Image src="/bg.png" alt="" fill style={{objectFit: "cover"}} quality={100} priority />
+        <div className="bg-overlay"></div>
+      </div>
 
-      <section className="landing-hero">
-        <div className="landing-copy">
-          <p className="landing-kicker">Audit. Explain. Mitigate. Govern.</p>
-          <h1>Fair AI decisions, presented like a product judges can trust.</h1>
-          <p>
-            FairLens turns classic biased datasets into a live responsible-AI command center:
-            baseline risk, SHAP explainability, Fairlearn mitigation, human review, monitoring,
-            and a governance report in one polished flow.
-          </p>
-          <div className="landing-actions">
-            <ButtonLink className="landing-cta" href="/dashboard" size="lg">
-              Let&apos;s begin
-            </ButtonLink>
-            <span>{loading ? "Preparing live audit" : "Live audit ready"}</span>
-          </div>
-        </div>
 
-        <Card className="lens-showcase" variant="glass" aria-label="FairLens live audit preview">
-          <div className="lens-header">
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="lens-orbit">
-            <div className="lens-core">
-              <span>FairLens</span>
-              <strong>{data ? data.risk.level : "Live"}</strong>
+
+      {/* Main Content */}
+      <main className="main-content">
+        <div className="hero-section">
+          <div className="glass-card left-card" id="project-proof">
+            <h1 className="glowing-title">FairLens</h1>
+            <p className="subtitle">AI-powered bias detection<br/>& audit toolkit</p>
+            <div className="action-buttons">
+              <Link href="/dashboard" className="primary-btn" style={{display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none'}}>Start Audit</Link>
             </div>
           </div>
-          <div className="lens-metrics">
-            <div>
-              <span>Baseline</span>
-              <strong>{data ? percent(data.baseline.accuracy) : "Model"}</strong>
-            </div>
-            <div>
-              <span>Mitigated</span>
-              <strong>{data ? percent(data.mitigated.accuracy) : "Fair"}</strong>
-            </div>
+          
+          <div className="right-graphic" id="lens-preview">
+             <div className="magnifying-glass-wrapper">
+                <div className="glass-handle">
+                    <div className="handle-connector"></div>
+                </div>
+                <div className="magnifying-glass">
+                   <div className="glass-lens">
+                      <div className="candlestick-chart">
+                          {/* 3 Candlesticks */}
+                          <div className="candle left">
+                              <div className="wick"></div>
+                              <div className="body"></div>
+                          </div>
+                          <div className="candle mid">
+                              <div className="wick"></div>
+                              <div className="body"></div>
+                              <div className="glow-dot top-dot"></div>
+                              <div className="glow-dot bottom-dot"></div>
+                          </div>
+                          <div className="candle right">
+                              <div className="wick"></div>
+                              <div className="body"></div>
+                          </div>
+                      </div>
+                   </div>
+                </div>
+             </div>
           </div>
-        </Card>
-      </section>
+        </div>
+      </main>
 
-      <section className="landing-proof">
-        {proofStats.map((stat) => (
-          <Card className="proof-card" key={stat.label} variant="glass">
-            <span>{stat.label}</span>
-            <strong>{stat.value}</strong>
-            <p>{stat.note}</p>
-          </Card>
-        ))}
-      </section>
+      <div className="floating-action-bar" aria-label="Landing quick actions">
+        <Link href="/dashboard" className="action-btn active" aria-label="Start audit">01</Link>
+        <a href="#lens-preview" className="action-btn" aria-label="View lens preview">02</a>
+        <a href="#project-proof" className="action-btn" aria-label="View project summary">03</a>
+      </div>
 
-      <Card className="landing-flow" variant="glass">
-        <div>
-          <span>01</span>
-          <strong>Expose unfair outcomes</strong>
-          <p>Measure selection-rate gaps across protected groups using real historical data.</p>
+      <footer className="footer">
+        <div className="footer-left">
+          <span>Real bias audits</span>
+          <span>Fairlearn mitigation</span>
         </div>
-        <div>
-          <span>02</span>
-          <strong>Explain hidden proxies</strong>
-          <p>Surface the features driving model behavior and flag high-risk proxy signals.</p>
+        <div className="footer-links">
+          <Link href="/dashboard">Dashboard</Link>
+          <Link href="/dashboard">Governance</Link>
         </div>
-        <div>
-          <span>03</span>
-          <strong>Ship a governance story</strong>
-          <p>Compare before and after mitigation, then package the result for reviewers.</p>
-        </div>
-      </Card>
-    </main>
+      </footer>
+    </div>
   );
 }
