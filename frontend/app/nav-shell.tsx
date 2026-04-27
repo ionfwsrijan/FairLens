@@ -1,15 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 
 export function NavShell() {
-  const pathname = usePathname();
-
-  if (pathname?.startsWith("/dashboard")) {
-    return null;
-  }
-
   return (
     <nav className="global-navbar">
       <div className="nav-container">

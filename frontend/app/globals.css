@@ -165,8 +165,8 @@ p, span, div {
 /* Sidebar - Glassmorphism */
 .sidebar {
   position: sticky;
-  top: 40px;
-  min-height: calc(100vh - 80px);
+  top: 112px;
+  min-height: calc(100vh - 136px);
   border: 1px solid var(--outline-variant);
   border-radius: 8px; /* lg */
   background: rgba(28, 27, 27, 0.6); /* surface-container-low transparent */
@@ -614,15 +614,11 @@ p, span, div {
 
 @media (min-width: 1181px) {
   .tab-grid > .risk-panel.span-6 {
-    grid-column: span 5;
+    grid-column: span 6;
   }
 
   .tab-grid > .metric-card {
     grid-column: span 2;
-  }
-
-  .tab-grid > .metric-card:nth-of-type(4) {
-    grid-column: span 3;
   }
 }
 
@@ -924,7 +920,25 @@ p, span, div {
 }
 
 .policy-table div {
-  grid-template-columns: minmax(150px, 1fr) 100px 88px 78px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(56px, 0.55fr) minmax(56px, 0.45fr) minmax(62px, 0.45fr);
+  min-width: 0;
+}
+
+.policy-table,
+.policy-table strong,
+.policy-table span,
+.policy-table em {
+  min-width: 0;
+}
+
+.policy-table {
+  overflow: hidden;
+}
+
+.policy-table strong,
+.policy-table span,
+.policy-table em {
+  overflow-wrap: anywhere;
 }
 
 /* Charts */
@@ -962,6 +976,9 @@ p, span, div {
 
 .track,
 .bar-track {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   height: 8px;
   border-radius: 4px;
   background: var(--surface-variant);
@@ -1160,6 +1177,8 @@ p, span, div {
 .bar-list {
   display: grid;
   gap: 24px;
+  min-width: 0;
+  overflow: hidden;
 }
 .bar-list.compact {
   gap: 12px;
@@ -1359,7 +1378,7 @@ p, span, div {
 
   .shell {
     width: min(100% - 24px, 1280px);
-    padding: 24px 0 48px;
+    padding: 86px 0 48px;
   }
 
   .topbar,
@@ -1470,7 +1489,7 @@ p, span, div {
 @media (max-width: 520px) {
   .shell {
     width: min(100% - 16px, 1280px);
-    padding: 18px 0 40px;
+    padding: 82px 0 40px;
   }
 
   .sidebar,
