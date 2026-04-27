@@ -971,7 +971,7 @@ function AIReportCenter({
 
   function downloadReport() {
     if (!report) return;
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>FairLens Report</title><style>body{font-family:Arial,sans-serif;max-width:860px;margin:40px auto;line-height:1.6;color:#172026}h1,h2{color:#08686a}</style></head><body><h1>FairLens AI Governance Report</h1>${report.sections.map((section) => `<h2>${section.title}</h2><p>${section.body}</p>`).join("")}</body></html>`;
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>FairLens Report</title><style>body{font-family:Arial,sans-serif;max-width:860px;margin:40px auto;line-height:1.6;color:#f7f2ff;background:#0d0b13}h1,h2{color:#c4b5fd}p{color:#d7cee8}</style></head><body><h1>FairLens AI Governance Report</h1>${report.sections.map((section) => `<h2>${section.title}</h2><p>${section.body}</p>`).join("")}</body></html>`;
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
