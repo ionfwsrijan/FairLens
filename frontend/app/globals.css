@@ -1,11 +1,11 @@
 :root {
   --ink: #f7f2ff;
   --muted: #a89fbb;
-  --line: rgba(175, 139, 255, 0.22);
-  --surface: #15121d;
-  --canvas: #6d55f4;
-  --panel: #1d1829;
-  --panel-strong: #0d0b13;
+  --line: rgba(196, 181, 253, 0.34);
+  --surface: #26124f;
+  --canvas: #050408;
+  --panel: #321964;
+  --panel-strong: #180b31;
   --teal: #8b5cf6;
   --teal-dark: #c4b5fd;
   --mint: rgba(139, 92, 246, 0.17);
@@ -16,8 +16,8 @@
   --green: #34d399;
   --green-soft: rgba(52, 211, 153, 0.14);
   --violet: #a78bfa;
-  --shadow: 0 24px 70px rgba(5, 3, 13, 0.42);
-  --purple-glow: 0 0 0 1px rgba(167, 139, 250, 0.16), 0 18px 45px rgba(95, 70, 220, 0.18);
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.58);
+  --purple-glow: 0 0 0 1px rgba(196, 181, 253, 0.18), 0 18px 45px rgba(124, 58, 237, 0.2);
 }
 
 * {
@@ -26,15 +26,15 @@
 
 html {
   min-width: 320px;
-  background: #151020;
+  background: var(--canvas);
 }
 
 body {
   margin: 0;
   color: var(--ink);
   background:
-    radial-gradient(circle at 50% -160px, rgba(187, 161, 255, 0.38), transparent 380px),
-    linear-gradient(135deg, #7657ff 0%, #6342d7 36%, #221735 72%, #0c0a12 100%);
+    linear-gradient(180deg, rgba(15, 11, 24, 0.82), rgba(5, 4, 8, 0.98) 360px),
+    #050408;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -68,7 +68,7 @@ button {
   border: 1px solid var(--line);
   border-radius: 8px;
   background:
-    linear-gradient(180deg, rgba(32, 27, 45, 0.96), rgba(13, 11, 19, 0.98)),
+    linear-gradient(180deg, rgba(54, 27, 105, 0.96), rgba(24, 11, 49, 0.98)),
     var(--panel-strong);
   box-shadow: var(--purple-glow), var(--shadow);
   padding: 18px;
@@ -119,10 +119,10 @@ button {
 }
 
 .workspace-nav button.active {
-  border-color: rgba(167, 139, 250, 0.48);
+  border-color: rgba(216, 202, 255, 0.54);
   background:
-    linear-gradient(135deg, rgba(139, 92, 246, 0.24), rgba(75, 54, 166, 0.2)),
-    rgba(255, 255, 255, 0.03);
+    linear-gradient(135deg, rgba(167, 139, 250, 0.42), rgba(93, 49, 185, 0.46)),
+    var(--panel);
   color: var(--teal-dark);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
@@ -153,7 +153,7 @@ button {
   min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #100d18;
+  background: #211044;
   color: var(--ink);
   padding: 8px 10px;
   font: inherit;
@@ -228,7 +228,7 @@ h2 {
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(13, 11, 19, 0.86);
+  background: rgba(50, 25, 100, 0.9);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
@@ -263,7 +263,7 @@ h2 {
 
 .ghost-button {
   border: 1px solid var(--line);
-  background: rgba(21, 18, 29, 0.86);
+  background: rgba(50, 25, 100, 0.86);
   color: var(--ink);
   padding: 0 16px;
 }
@@ -281,8 +281,8 @@ h2 {
 .ghost-button:hover,
 .tabs button:hover,
 .segmented button:hover {
-  border-color: rgba(196, 181, 253, 0.42);
-  background: rgba(167, 139, 250, 0.08);
+  border-color: rgba(216, 202, 255, 0.58);
+  background: rgba(167, 139, 250, 0.2);
 }
 
 .primary-button:hover {
@@ -316,7 +316,7 @@ textarea:focus-visible {
   border: 1px solid var(--line);
   border-radius: 8px;
   background:
-    linear-gradient(180deg, rgba(31, 26, 43, 0.96), rgba(14, 12, 20, 0.98)),
+    linear-gradient(180deg, rgba(62, 31, 124, 0.96), rgba(35, 17, 75, 0.98)),
     var(--surface);
   box-shadow: var(--purple-glow), var(--shadow);
 }
@@ -368,9 +368,9 @@ textarea:focus-visible {
 
 .panel-heading span,
 .status-chip {
-  background: rgba(139, 92, 246, 0.18);
+  background: rgba(196, 181, 253, 0.18);
   color: var(--teal-dark);
-  border: 1px solid rgba(167, 139, 250, 0.2);
+  border: 1px solid rgba(216, 202, 255, 0.24);
 }
 
 .status-chip.danger,
@@ -432,13 +432,13 @@ textarea:focus-visible {
   margin: 16px 0;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(167, 139, 250, 0.18);
+  background: rgba(216, 202, 255, 0.18);
 }
 
 .context-strip div {
   min-width: 0;
   padding: 14px 16px;
-  background: rgba(13, 11, 19, 0.88);
+  background: rgba(50, 25, 100, 0.88);
 }
 
 .context-strip span {
@@ -467,13 +467,13 @@ textarea:focus-visible {
 .tabs button {
   min-height: 48px;
   border: 1px solid var(--line);
-  background: rgba(13, 11, 19, 0.72);
+  background: rgba(50, 25, 100, 0.84);
 }
 
 .tabs button.active {
-  border-color: rgba(196, 181, 253, 0.42);
+  border-color: rgba(216, 202, 255, 0.62);
   background:
-    linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(21, 18, 29, 0.98)),
+    linear-gradient(135deg, rgba(167, 139, 250, 0.58), rgba(93, 49, 185, 0.96)),
     var(--surface);
   color: var(--teal-dark);
   box-shadow: var(--purple-glow);
@@ -527,7 +527,7 @@ textarea:focus-visible {
   margin: 28px auto 8px;
   border-radius: 50%;
   background:
-    radial-gradient(circle at center, #11101a 0 58%, transparent 59%),
+    radial-gradient(circle at center, #26124f 0 58%, transparent 59%),
     conic-gradient(#a78bfa var(--value), rgba(255, 255, 255, 0.12) 0);
   box-shadow: 0 0 42px rgba(139, 92, 246, 0.16);
 }
@@ -645,7 +645,7 @@ textarea:focus-visible {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(29, 24, 41, 0.84);
+  background: rgba(50, 25, 100, 0.84);
   padding: 14px;
 }
 
@@ -666,12 +666,12 @@ textarea:focus-visible {
   gap: 5px;
   padding: 12px;
   border-color: var(--line);
-  background: rgba(29, 24, 41, 0.82);
+  background: rgba(50, 25, 100, 0.82);
 }
 
 .case-list button.active {
-  border-color: rgba(196, 181, 253, 0.42);
-  background: rgba(139, 92, 246, 0.16);
+  border-color: rgba(216, 202, 255, 0.58);
+  background: rgba(167, 139, 250, 0.26);
 }
 
 .case-list button strong {
@@ -753,7 +753,7 @@ textarea:focus-visible {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(13, 11, 19, 0.88);
+  background: rgba(35, 17, 75, 0.9);
   color: var(--ink);
   font: inherit;
 }
@@ -835,7 +835,7 @@ textarea:focus-visible {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(29, 24, 41, 0.82);
+  background: rgba(50, 25, 100, 0.82);
   padding: 12px;
 }
 
@@ -919,7 +919,7 @@ textarea:focus-visible {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(29, 24, 41, 0.82);
+  background: rgba(50, 25, 100, 0.82);
   padding: 14px;
 }
 
@@ -953,7 +953,7 @@ textarea:focus-visible {
   border: 1px solid rgba(196, 181, 253, 0.32);
   border-radius: 8px;
   background:
-    linear-gradient(120deg, rgba(139, 92, 246, 0.24), rgba(20, 16, 30, 0.92)),
+    linear-gradient(120deg, rgba(167, 139, 250, 0.36), rgba(50, 25, 100, 0.94)),
     var(--surface);
   box-shadow: var(--purple-glow), var(--shadow);
   padding: 32px;
@@ -1081,7 +1081,7 @@ textarea:focus-visible {
 
 .narrative-panel {
   background:
-    linear-gradient(180deg, rgba(41, 33, 58, 0.9), rgba(16, 13, 23, 0.96)),
+    linear-gradient(180deg, rgba(69, 36, 132, 0.92), rgba(42, 19, 86, 0.98)),
     var(--panel);
 }
 
@@ -1112,7 +1112,7 @@ textarea:focus-visible {
   justify-content: space-between;
   gap: 24px;
   background:
-    linear-gradient(90deg, rgba(139, 92, 246, 0.2), transparent 58%),
+    linear-gradient(90deg, rgba(167, 139, 250, 0.32), rgba(50, 25, 100, 0.92) 58%),
     var(--surface);
 }
 
@@ -1124,7 +1124,7 @@ textarea:focus-visible {
   position: relative;
   overflow: hidden;
   border-style: dashed;
-  background: rgba(13, 11, 19, 0.72);
+  background: rgba(50, 25, 100, 0.72);
 }
 
 .before-after-card.revealed {
@@ -1139,7 +1139,7 @@ textarea:focus-visible {
   gap: 8px;
   border: 1px dashed var(--line);
   border-radius: 8px;
-  background: rgba(29, 24, 41, 0.56);
+  background: rgba(50, 25, 100, 0.56);
   color: var(--muted);
   text-align: center;
 }
@@ -1206,7 +1206,7 @@ textarea:focus-visible {
 .skeleton {
   min-height: 180px;
   border-radius: 8px;
-  background: linear-gradient(90deg, #171220, #2b2142, #171220);
+  background: linear-gradient(90deg, #24124a, #4a2492, #24124a);
   background-size: 200% 100%;
   animation: shimmer 1.2s infinite linear;
 }
