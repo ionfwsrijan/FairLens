@@ -32,6 +32,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
 RANDOM_STATE = 42
+CACHE_SCHEMA_VERSION = 2
 SUPPORTED_DATASETS = ("adult", "german_credit")
 SUPPORTED_PROTECTED_ATTRIBUTES = ("sex", "race", "age_group")
 SUPPORTED_ROLES = ("Executive", "ML Engineer", "Compliance Reviewer", "Auditor")
@@ -191,6 +192,7 @@ def run_audit(
     )
 
     result = {
+        "schema_version": CACHE_SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "dataset": {
             "key": dataset_key,
@@ -239,6 +241,7 @@ def is_current_cache(payload: dict[str, Any]) -> bool:
     return all(
         [
             "profile" in payload.get("dataset", {}),
+            payload.get("schema_version") == CACHE_SCHEMA_VERSION,
             "key" in payload.get("dataset", {}),
             "supported_protected_attributes" in payload.get("dataset", {}),
             "baseline" in payload,
@@ -811,6 +814,7 @@ def build_slice_diagnostics(
     frame["__target__"] = np.asarray(y_true).astype(int)
     frame["__pred__"] = np.asarray(y_pred).astype(int)
     frame["__sensitive__"] = pd.Series(sensitive).reset_index(drop=True).astype(str)
+    frame["protected_group"] = frame["__sensitive__"]
 
     if "age" in frame.columns:
         frame["age_band"] = pd.cut(
@@ -838,6 +842,7 @@ def build_slice_diagnostics(
     slice_columns = [
         column
         for column in [
+            "protected_group",
             "age_band",
             "hours_band",
             "credit_amount_band",
