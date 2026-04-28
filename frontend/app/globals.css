@@ -623,7 +623,7 @@ p, span, div {
 /* Context Strip */
 .context-strip {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 1px;
   overflow: hidden;
   margin: 24px 0 40px;

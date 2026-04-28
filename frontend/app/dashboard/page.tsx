@@ -491,7 +491,7 @@ export default function Home() {
           </section>
         )}
 
-        {(loading && !data) || (refreshing && isStaleAudit) ? (
+        {(loading && !data) || isStaleAudit ? (
           <section className="loading-grid">
             <div className="skeleton wide" />
             <div className="skeleton" />
@@ -549,6 +549,10 @@ function ContextStrip({ data, lastRun }: { data: AuditResponse; lastRun: string 
       <div>
         <span>Protected audit</span>
         <strong>{attributeLabel(data.dataset.protected_attribute)}</strong>
+      </div>
+      <div>
+        <span>Role lens</span>
+        <strong>{data.role_context.role}</strong>
       </div>
       <div>
         <span>Feature posture</span>
