@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 type DatasetKey = "adult" | "german_credit";
 type ProtectedAttribute = "sex" | "race" | "age_group";
+type RoleKey = "Executive" | "ML Engineer" | "Compliance Reviewer" | "Auditor";
 type ViewKey =
   | "command"
   | "data"
@@ -83,6 +84,24 @@ type PolicyCheck = {
   owner: string;
 };
 
+type RoleMetric = {
+  label: string;
+  value: number | string | null;
+  format: "percent" | "signed_percent" | "ratio" | "count" | "text";
+  rationale: string;
+};
+
+type RoleContext = {
+  role: RoleKey;
+  priority: string;
+  decision_question: string;
+  summary: string;
+  metric_focus: RoleMetric[];
+  recommended_actions: string[];
+  dashboard_focus: string[];
+  report_emphasis: string;
+};
+
 type AuditResponse = {
   generated_at: string;
   dataset: {
@@ -156,6 +175,7 @@ type AuditResponse = {
     baseline_message: string;
     mitigated_message: string;
   };
+  role_context: RoleContext;
   cache: {
     hit: boolean;
     path: string;
@@ -208,6 +228,7 @@ type AuditRun = {
 type AuditRequestOptions = {
   datasetKey?: DatasetKey;
   protectedAttribute?: ProtectedAttribute;
+  role?: RoleKey;
   signal?: AbortSignal;
 };
 
@@ -222,7 +243,7 @@ const datasetOptions: {
   { key: "german_credit", label: "German Credit", protectedAttributes: ["sex", "age_group"] }
 ];
 
-const roleOptions = ["Executive", "ML Engineer", "Compliance Reviewer", "Auditor"] as const;
+const roleOptions: RoleKey[] = ["Executive", "ML Engineer", "Compliance Reviewer", "Auditor"];
 
 const views: { key: ViewKey; label: string; kicker: string }[] = [
   { key: "command", label: "Command Center", kicker: "Executive view" },
@@ -266,10 +287,20 @@ function attributeLabel(attribute: ProtectedAttribute) {
   return "Age group";
 }
 
+function roleMetricValue(metric: RoleMetric) {
+  if (metric.value === null || metric.value === undefined) return "n/a";
+  if (typeof metric.value === "string") return metric.value;
+  if (metric.format === "percent") return percent(metric.value);
+  if (metric.format === "signed_percent") return signedPercent(metric.value);
+  if (metric.format === "ratio") return number(metric.value, 2);
+  if (metric.format === "count") return compactNumber(metric.value);
+  return String(metric.value);
+}
+
 export default function Home() {
   const [datasetKey, setDatasetKey] = useState<DatasetKey>("adult");
   const [protectedAttribute, setProtectedAttribute] = useState<ProtectedAttribute>("sex");
-  const [role, setRole] = useState<(typeof roleOptions)[number]>("Executive");
+  const [role, setRole] = useState<RoleKey>("Executive");
   const [activeView, setActiveView] = useState<ViewKey>("command");
   const [data, setData] = useState<AuditResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -293,22 +324,24 @@ export default function Home() {
     void loadAudit(false, {
       datasetKey,
       protectedAttribute: requestProtectedAttribute,
+      role,
       signal: controller.signal
     });
 
     return () => controller.abort();
-  }, [protectedAttribute, datasetKey, requestProtectedAttribute]);
+  }, [protectedAttribute, datasetKey, requestProtectedAttribute, role]);
 
   async function loadAudit(forceRefresh: boolean, options: AuditRequestOptions = {}) {
     const auditDatasetKey = options.datasetKey ?? datasetKey;
     const auditProtectedAttribute = options.protectedAttribute ?? requestProtectedAttribute;
+    const auditRole = options.role ?? role;
     setLoading(!data);
     setRefreshing(Boolean(data));
     setError(null);
     setSelectedCase(0);
     try {
       const response = await fetch(
-        `${API_URL}/api/audit?dataset=${auditDatasetKey}&protected_attribute=${auditProtectedAttribute}&force_refresh=${forceRefresh}`,
+        `${API_URL}/api/audit?dataset=${auditDatasetKey}&protected_attribute=${auditProtectedAttribute}&role=${encodeURIComponent(auditRole)}&force_refresh=${forceRefresh}`,
         { signal: options.signal }
       );
       if (options.signal?.aborted) return;
@@ -379,7 +412,7 @@ export default function Home() {
         <div className="sidebar-controls">
           <label>
             Role
-            <select value={role} onChange={(event) => setRole(event.target.value as typeof role)}>
+            <select value={role} onChange={(event) => setRole(event.target.value as RoleKey)}>
               {roleOptions.map((item) => (
                 <option key={item}>{item}</option>
               ))}
@@ -434,7 +467,8 @@ export default function Home() {
               onClick={() =>
                 loadAudit(true, {
                   datasetKey,
-                  protectedAttribute: requestProtectedAttribute
+                  protectedAttribute: requestProtectedAttribute,
+                  role
                 })
               }
               disabled={refreshing}
@@ -480,6 +514,7 @@ export default function Home() {
                 data={data}
                 datasetKey={datasetKey}
                 protectedAttribute={protectedAttribute}
+                role={role}
               />
             )}
             {activeView === "custom" && <CustomAuditLab />}
@@ -551,6 +586,8 @@ function CommandCenter({ data }: { data: AuditResponse }) {
         tone="good"
       />
 
+      <RoleBrief context={data.role_context} />
+
       <article className="panel span-7">
         <div className="panel-heading">
           <div>
@@ -575,6 +612,44 @@ function CommandCenter({ data }: { data: AuditResponse }) {
         <PolicyTable checks={data.policy} compact />
       </article>
     </section>
+  );
+}
+
+function RoleBrief({ context }: { context: RoleContext }) {
+  return (
+    <article className="panel span-12 role-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">{context.role} lens</p>
+          <h2>{context.priority}</h2>
+        </div>
+        <span className="status-chip good">Backend aware</span>
+      </div>
+      <p className="insight-copy">{context.summary}</p>
+      <div className="role-metric-grid">
+        {context.metric_focus.map((metric) => (
+          <div key={metric.label}>
+            <span>{metric.label}</span>
+            <strong>{roleMetricValue(metric)}</strong>
+            <p>{metric.rationale}</p>
+          </div>
+        ))}
+      </div>
+      <div className="role-action-grid">
+        <div>
+          <span>Decision question</span>
+          <strong>{context.decision_question}</strong>
+        </div>
+        <div>
+          <span>Recommended next action</span>
+          <strong>{context.recommended_actions[0]}</strong>
+        </div>
+        <div>
+          <span>Focus areas</span>
+          <strong>{context.dashboard_focus.join(" / ")}</strong>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -983,31 +1058,39 @@ function GovernanceHub({ data }: { data: AuditResponse }) {
 function AIReportCenter({
   data,
   datasetKey,
-  protectedAttribute
+  protectedAttribute,
+  role
 }: {
   data: AuditResponse;
   datasetKey: DatasetKey;
   protectedAttribute: ProtectedAttribute;
+  role: RoleKey;
 }) {
   const [report, setReport] = useState<GovernanceReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadReport(useAi: boolean) {
+  async function loadReport(useAi: boolean, signal?: AbortSignal) {
     setLoading(true);
     setError(null);
     try {
       const response = await fetch(
-        `/api/report?dataset=${datasetKey}&protected_attribute=${protectedAttribute}&use_ai=${useAi}`
+        `/api/report?dataset=${datasetKey}&protected_attribute=${protectedAttribute}&role=${encodeURIComponent(role)}&use_ai=${useAi}`,
+        { signal }
       );
+      if (signal?.aborted) return;
       if (!response.ok) {
         const details = await response.json().catch(() => null);
         throw new Error(details?.detail ?? "Report generation failed.");
       }
-      setReport((await response.json()) as GovernanceReport);
+      const nextReport = (await response.json()) as GovernanceReport;
+      if (signal?.aborted) return;
+      setReport(nextReport);
     } catch (requestError) {
+      if (requestError instanceof Error && requestError.name === "AbortError") return;
       setError(requestError instanceof Error ? requestError.message : "Report generation failed.");
     } finally {
+      if (signal?.aborted) return;
       setLoading(false);
     }
   }
@@ -1025,8 +1108,11 @@ function AIReportCenter({
   }
 
   useEffect(() => {
-    void loadReport(false);
-  }, [protectedAttribute]);
+    const controller = new AbortController();
+    setReport(null);
+    void loadReport(false, controller.signal);
+    return () => controller.abort();
+  }, [datasetKey, protectedAttribute, role]);
 
   const activeReport = report;
 
