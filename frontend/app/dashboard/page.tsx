@@ -379,6 +379,12 @@ export default function Home() {
       minute: "2-digit"
     }).format(new Date(data.generated_at));
   }, [data?.generated_at]);
+  const isStaleAudit = Boolean(
+    data &&
+      (data.dataset.key !== datasetKey ||
+        data.dataset.protected_attribute !== requestProtectedAttribute ||
+        data.role_context.role !== role)
+  );
 
   return (
     <>
@@ -485,7 +491,7 @@ export default function Home() {
           </section>
         )}
 
-        {loading && !data ? (
+        {(loading && !data) || (refreshing && isStaleAudit) ? (
           <section className="loading-grid">
             <div className="skeleton wide" />
             <div className="skeleton" />
@@ -542,7 +548,7 @@ function ContextStrip({ data, lastRun }: { data: AuditResponse; lastRun: string 
       </div>
       <div>
         <span>Protected audit</span>
-        <strong>{data.dataset.protected_attribute}</strong>
+        <strong>{attributeLabel(data.dataset.protected_attribute)}</strong>
       </div>
       <div>
         <span>Feature posture</span>
@@ -654,6 +660,8 @@ function RoleBrief({ context }: { context: RoleContext }) {
 }
 
 function DataRoom({ data }: { data: AuditResponse }) {
+  const auditLabel = attributeLabel(data.dataset.protected_attribute);
+
   return (
     <section className="tab-grid">
       <article className="panel span-4">
@@ -669,7 +677,7 @@ function DataRoom({ data }: { data: AuditResponse }) {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Base rates</p>
-            <h2>Historical outcome rate by group</h2>
+            <h2>Historical outcome rate by {auditLabel}</h2>
           </div>
         </div>
         <BaseRateBars groups={data.dataset.profile.protected_base_rates} />
@@ -679,7 +687,7 @@ function DataRoom({ data }: { data: AuditResponse }) {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Numeric profile</p>
-            <h2>Distribution snapshot</h2>
+            <h2>Global distribution snapshot</h2>
           </div>
         </div>
         <div className="data-table">
@@ -716,7 +724,7 @@ function DataRoom({ data }: { data: AuditResponse }) {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Categorical concentration</p>
-            <h2>Top values across operational features</h2>
+            <h2>Global top values across operational features</h2>
           </div>
         </div>
         <div className="category-grid">
@@ -738,6 +746,8 @@ function DataRoom({ data }: { data: AuditResponse }) {
 }
 
 function AuditWorkbench({ data }: { data: AuditResponse }) {
+  const auditLabel = attributeLabel(data.dataset.protected_attribute);
+
   return (
     <section className="tab-grid">
       <article className="panel span-7">
@@ -772,8 +782,19 @@ function AuditWorkbench({ data }: { data: AuditResponse }) {
       <article className="panel span-12">
         <div className="panel-heading">
           <div>
+            <p className="eyebrow">{auditLabel} model outcomes</p>
+            <h2>Baseline approval, error, and accuracy by selected group</h2>
+          </div>
+          <span className="status-chip danger">{percent(data.baseline.demographic_parity_difference)} gap</span>
+        </div>
+        <GroupBars groups={data.baseline.by_group} />
+      </article>
+
+      <article className="panel span-12">
+        <div className="panel-heading">
+          <div>
             <p className="eyebrow">Slice monitor</p>
-            <h2>Segments with the largest approval-rate shift</h2>
+            <h2>Segments with the largest approval-rate shift for {auditLabel}</h2>
           </div>
           <span className="status-chip danger">Needs review</span>
         </div>
@@ -793,6 +814,7 @@ function DecisionReview({
   setSelectedCase: (value: number) => void;
 }) {
   const activeCase = data.decision_cases[selectedCase] ?? data.decision_cases[0];
+  const auditLabel = attributeLabel(data.dataset.protected_attribute);
   const [reviewStatus, setReviewStatus] = useState("Needs review");
   const [reviewDecision, setReviewDecision] = useState("Pending");
   const [reviewNote, setReviewNote] = useState("");
@@ -846,7 +868,7 @@ function DecisionReview({
             <h2>{activeCase.id}: {activeCase.prediction}</h2>
           </div>
           <span className={activeCase.prediction === "Denied" ? "status-chip danger" : "status-chip good"}>
-            {activeCase.protected_group}
+            {auditLabel}: {activeCase.protected_group}
           </span>
         </div>
 
@@ -925,6 +947,8 @@ function MitigationLab({
   visible: boolean;
   onToggle: () => void;
 }) {
+  const auditLabel = attributeLabel(data.dataset.protected_attribute);
+
   return (
     <section className="tab-grid">
       <article className="panel span-12 mitigation-hero">
@@ -943,7 +967,7 @@ function MitigationLab({
 
       <article className="panel span-6 before-after-card">
         <p className="eyebrow">Before</p>
-        <h2>Baseline model</h2>
+        <h2>Baseline model by {auditLabel}</h2>
         <MetricRow label="Accuracy" value={percent(data.baseline.accuracy)} />
         <MetricRow label="Parity gap" value={percent(data.baseline.demographic_parity_difference)} tone="danger" />
         <MetricRow label="Equalized odds" value={percent(data.baseline.equalized_odds_difference)} />
@@ -952,7 +976,7 @@ function MitigationLab({
 
       <article className={`panel span-6 before-after-card ${visible ? "revealed" : "locked"}`}>
         <p className="eyebrow">After</p>
-        <h2>FairLens mitigation</h2>
+        <h2>FairLens mitigation by {auditLabel}</h2>
         {visible ? (
           <>
             <MetricRow label="Accuracy" value={percent(data.mitigated.accuracy)} delta={signedPercent(data.comparison.accuracy_delta)} />
