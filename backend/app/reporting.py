@@ -50,15 +50,26 @@ def build_local_report(audit: dict[str, Any]) -> dict[str, Any]:
     comparison = audit["comparison"]
     dataset = audit["dataset"]
     risk = audit["risk"]
+    role_context = audit.get("role_context", {})
+    role_name = role_context.get("role", "Executive")
 
     sections = [
         {
             "title": "Executive Summary",
             "body": (
-                f"FairLens audited the {dataset['name']} model for {dataset['protected_attribute']} fairness. "
+                f"FairLens audited the {dataset['name']} model for {dataset['protected_attribute']} fairness "
+                f"through the {role_name} lens. "
                 f"The baseline model reached {pct(baseline['accuracy'])} accuracy but showed a "
                 f"{pct(baseline['demographic_parity_difference'])} demographic parity gap. "
                 f"Mitigation reduced the gap to {pct(mitigated['demographic_parity_difference'])}."
+            ),
+        },
+        {
+            "title": f"{role_name} Review Lens",
+            "body": (
+                f"Priority: {role_context.get('priority', 'Fairness review')}. "
+                f"Decision question: {role_context.get('decision_question', 'Can this model be governed responsibly?')} "
+                f"Report emphasis: {role_context.get('report_emphasis', 'Fairness evidence and deployment controls')}."
             ),
         },
         {
@@ -110,6 +121,7 @@ def generate_gemini_report(audit: dict[str, Any], api_key: str) -> list[dict[str
         "baseline": audit["baseline"],
         "mitigated": audit["mitigated"],
         "comparison": audit["comparison"],
+        "role_context": audit.get("role_context"),
         "top_features": audit["explainability"]["top_features"][:8],
         "policy": audit["policy"],
     }
@@ -117,7 +129,7 @@ def generate_gemini_report(audit: dict[str, Any], api_key: str) -> list[dict[str
         "You are FairLens, an AI governance copilot. Write a concise, judge-ready responsible AI "
         "audit report from this JSON. Return strict JSON only with this shape: "
         "{\"sections\":[{\"title\":\"...\",\"body\":\"...\"}]}. Include Executive Summary, "
-        "Fairness Risk, Explainability, Mitigation, and Deployment Recommendation. "
+        "Role-Specific Review Lens, Fairness Risk, Explainability, Mitigation, and Deployment Recommendation. "
         f"Audit JSON: {json.dumps(summary)[:16000]}"
     )
     payload = {

@@ -34,6 +34,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 RANDOM_STATE = 42
 SUPPORTED_DATASETS = ("adult", "german_credit")
 SUPPORTED_PROTECTED_ATTRIBUTES = ("sex", "race", "age_group")
+SUPPORTED_ROLES = ("Executive", "ML Engineer", "Compliance Reviewer", "Auditor")
 ADULT_PROTECTED_COLUMNS = ("sex", "race")
 GERMAN_PROTECTED_COLUMNS = ("sex", "age_group", "personal_status_sex")
 ADULT_POSITIVE_LABEL = ">50K"
@@ -101,10 +102,14 @@ def run_audit(
     protected_attribute: str = "sex",
     force_refresh: bool = False,
     dataset_key: str = "adult",
+    role: str = "Executive",
 ) -> dict[str, Any]:
     if dataset_key not in SUPPORTED_DATASETS:
         supported = ", ".join(SUPPORTED_DATASETS)
         raise ValueError(f"Unsupported dataset '{dataset_key}'. Use one of: {supported}.")
+    if role not in SUPPORTED_ROLES:
+        supported = ", ".join(SUPPORTED_ROLES)
+        raise ValueError(f"Unsupported role '{role}'. Use one of: {supported}.")
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     cache_path = CACHE_DIR / f"{dataset_key}_audit_{protected_attribute}.json"
@@ -113,7 +118,7 @@ def run_audit(
             cached = json.load(handle)
         if is_current_cache(cached):
             cached["cache"] = {"hit": True, "path": str(cache_path)}
-            return cached
+            return attach_role_context(cached, role)
 
     X_raw, y, source, metadata = load_dataset(dataset_key)
     if protected_attribute not in metadata["protected_attributes"]:
@@ -227,7 +232,7 @@ def run_audit(
     with cache_path.open("w", encoding="utf-8") as handle:
         json.dump(result, handle, indent=2)
 
-    return result
+    return attach_role_context(result, role)
 
 
 def is_current_cache(payload: dict[str, Any]) -> bool:
@@ -236,12 +241,179 @@ def is_current_cache(payload: dict[str, Any]) -> bool:
             "profile" in payload.get("dataset", {}),
             "key" in payload.get("dataset", {}),
             "supported_protected_attributes" in payload.get("dataset", {}),
+            "baseline" in payload,
+            "mitigated" in payload,
+            "comparison" in payload,
+            "explainability" in payload,
             "segments" in payload,
             "decision_cases" in payload,
             "policy" in payload,
             "governance" in payload,
+            "risk" in payload,
         ]
     )
+
+
+def attach_role_context(payload: dict[str, Any], role: str) -> dict[str, Any]:
+    result = dict(payload)
+    result["role_context"] = build_role_context(result, role)
+    return result
+
+
+def build_role_context(audit: dict[str, Any], role: str) -> dict[str, Any]:
+    baseline = audit["baseline"]
+    mitigated = audit["mitigated"]
+    comparison = audit["comparison"]
+    policy = audit["policy"]
+    risk = audit["risk"]
+    explainability = audit["explainability"]
+    dataset = audit["dataset"]
+
+    policy_total = max(len(policy), 1)
+    policy_passed = sum(1 for check in policy if check["status"] == "Pass")
+    top_feature = explainability["top_features"][0]["feature"] if explainability["top_features"] else "No dominant proxy"
+    protected_group_count = len(dataset.get("protected_groups", []))
+
+    metric_catalog = {
+        "risk_level": {
+            "label": "Risk level",
+            "value": risk["level"],
+            "format": "text",
+            "rationale": "The fastest signal for whether this model needs executive or compliance attention.",
+        },
+        "baseline_accuracy": {
+            "label": "Baseline accuracy",
+            "value": baseline["accuracy"],
+            "format": "percent",
+            "rationale": "Shows raw model utility before fairness intervention.",
+        },
+        "mitigated_accuracy": {
+            "label": "Mitigated accuracy",
+            "value": mitigated["accuracy"],
+            "format": "percent",
+            "rationale": "Shows production utility after the fairness constraint is applied.",
+        },
+        "accuracy_delta": {
+            "label": "Accuracy trade-off",
+            "value": comparison["accuracy_delta"],
+            "format": "signed_percent",
+            "rationale": "Quantifies the business cost of mitigation.",
+        },
+        "parity_gap": {
+            "label": "Parity gap",
+            "value": baseline["demographic_parity_difference"],
+            "format": "percent",
+            "rationale": "Measures the baseline disparity across the selected protected groups.",
+        },
+        "mitigated_gap": {
+            "label": "Mitigated gap",
+            "value": mitigated["demographic_parity_difference"],
+            "format": "percent",
+            "rationale": "Measures remaining disparity after mitigation.",
+        },
+        "bias_reduction": {
+            "label": "Bias reduction",
+            "value": comparison["bias_reduction"],
+            "format": "percent",
+            "rationale": "Shows how much disparity FairLens removed.",
+        },
+        "disparate_impact": {
+            "label": "Disparate impact ratio",
+            "value": mitigated["demographic_parity_ratio"],
+            "format": "ratio",
+            "rationale": "A compliance-friendly ratio for adverse impact review.",
+        },
+        "equalized_odds": {
+            "label": "Equalized odds gap",
+            "value": baseline["equalized_odds_difference"],
+            "format": "percent",
+            "rationale": "Highlights whether error rates differ across groups.",
+        },
+        "policy_readiness": {
+            "label": "Policy gates passing",
+            "value": policy_passed / policy_total,
+            "format": "percent",
+            "rationale": f"{policy_passed} of {policy_total} deployment controls currently pass.",
+        },
+        "top_proxy": {
+            "label": "Top proxy feature",
+            "value": top_feature,
+            "format": "text",
+            "rationale": "The first feature to inspect when explaining proxy risk.",
+        },
+        "protected_groups": {
+            "label": "Protected groups audited",
+            "value": protected_group_count,
+            "format": "count",
+            "rationale": "Defines the audit coverage for this role's review.",
+        },
+    }
+
+    role_playbook = {
+        "Executive": {
+            "priority": "Ship readiness and business risk",
+            "decision_question": "Can leadership defend the accuracy trade-off and approve the mitigated workflow?",
+            "metric_keys": ["risk_level", "baseline_accuracy", "bias_reduction", "accuracy_delta"],
+            "recommended_actions": [
+                "Present the mitigated model as the deployment candidate, not the baseline model.",
+                "Frame the accuracy trade-off against the measured reduction in protected-group disparity.",
+                "Keep human review active for borderline denials before any production launch.",
+            ],
+            "dashboard_focus": ["Command Center", "Mitigation Lab", "AI Report"],
+            "report_emphasis": "Board-ready fairness posture, business trade-off, and deployment decision.",
+        },
+        "ML Engineer": {
+            "priority": "Model behavior, proxies, and monitoring",
+            "decision_question": "Which features, slices, and error gaps need engineering work before release?",
+            "metric_keys": ["baseline_accuracy", "equalized_odds", "top_proxy", "mitigated_gap"],
+            "recommended_actions": [
+                "Inspect high-importance proxy features and test feature-removal or monotonic constraints.",
+                "Compare baseline and mitigated error rates across protected groups.",
+                "Add fairness drift monitoring for the segments with the largest approval-rate shifts.",
+            ],
+            "dashboard_focus": ["Audit Workbench", "Data Room", "Monitoring"],
+            "report_emphasis": "Feature-level diagnostics, error-rate behavior, and retraining hooks.",
+        },
+        "Compliance Reviewer": {
+            "priority": "Policy gates and defensible evidence",
+            "decision_question": "Does the mitigated model satisfy adverse-impact and governance review requirements?",
+            "metric_keys": ["disparate_impact", "policy_readiness", "mitigated_gap", "protected_groups"],
+            "recommended_actions": [
+                "Attach the model card, policy gates, and fairness scorecard to the review record.",
+                "Require sign-off for any policy gate marked Review.",
+                "Document why protected attributes are excluded from training and retained for audit only.",
+            ],
+            "dashboard_focus": ["Governance", "Decision Review", "AI Report"],
+            "report_emphasis": "Evidence pack, adverse-impact language, and reviewer sign-off path.",
+        },
+        "Auditor": {
+            "priority": "Traceability and repeatable audit evidence",
+            "decision_question": "Can an independent reviewer reproduce the fairness finding from real data?",
+            "metric_keys": ["protected_groups", "parity_gap", "mitigated_gap", "policy_readiness"],
+            "recommended_actions": [
+                "Verify dataset source, row counts, protected-group counts, and cache path.",
+                "Review representative decision cases for each protected group.",
+                "Export the report and retain the audit timestamp for submission evidence.",
+            ],
+            "dashboard_focus": ["Data Room", "Decision Review", "Governance"],
+            "report_emphasis": "Dataset provenance, repeatability, and audit trail completeness.",
+        },
+    }
+
+    playbook = role_playbook[role]
+    return {
+        "role": role,
+        "priority": playbook["priority"],
+        "decision_question": playbook["decision_question"],
+        "summary": (
+            f"{role} mode emphasizes {playbook['priority'].lower()} for the "
+            f"{dataset['name']} audit across {dataset['protected_attribute']} groups."
+        ),
+        "metric_focus": [metric_catalog[key] for key in playbook["metric_keys"]],
+        "recommended_actions": playbook["recommended_actions"],
+        "dashboard_focus": playbook["dashboard_focus"],
+        "report_emphasis": playbook["report_emphasis"],
+    }
 
 
 def load_dataset(dataset_key: str) -> tuple[pd.DataFrame, pd.Series, str, dict[str, Any]]:

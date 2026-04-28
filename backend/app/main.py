@@ -43,6 +43,9 @@ def audit(
     protected_attribute: Literal["sex", "race", "age_group"] = Query(
         "sex", description="Protected attribute to audit."
     ),
+    role: Literal["Executive", "ML Engineer", "Compliance Reviewer", "Auditor"] = Query(
+        "Executive", description="Persona-specific backend lens for recommendations and reporting."
+    ),
     force_refresh: bool = Query(False, description="Recompute instead of using the cache."),
 ) -> dict:
     try:
@@ -50,6 +53,7 @@ def audit(
             protected_attribute=protected_attribute,
             force_refresh=force_refresh,
             dataset_key=dataset,
+            role=role,
         )
         if force_refresh:
             append_audit_run(protected_attribute, result, dataset)
@@ -62,6 +66,7 @@ def audit(
 def report(
     dataset: Literal["adult", "german_credit"] = Query("adult"),
     protected_attribute: Literal["sex", "race", "age_group"] = Query("sex"),
+    role: Literal["Executive", "ML Engineer", "Compliance Reviewer", "Auditor"] = Query("Executive"),
     use_ai: bool = Query(False, description="Use Gemini API when GEMINI_API_KEY is configured."),
 ) -> dict:
     try:
@@ -69,6 +74,7 @@ def report(
             protected_attribute=protected_attribute,
             force_refresh=False,
             dataset_key=dataset,
+            role=role,
         )
         return build_governance_report(audit_result, use_ai=use_ai)
     except Exception as exc:
