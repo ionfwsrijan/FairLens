@@ -565,6 +565,7 @@ export default function Home() {
           <>
             <ContextStrip data={data} lastRun={lastRun} />
             <JudgeSummary data={data} policyChecks={livePolicyChecks} />
+            <BlockedDeploymentWarning data={data} thresholds={thresholds} />
             <ThresholdSettings thresholds={thresholds} onChange={setThresholds} />
             {activeView === "command" && <CommandCenter data={data} policyChecks={livePolicyChecks} />}
             {activeView === "data" && <DataRoom data={data} />}
@@ -695,6 +696,38 @@ function JudgeSummary({ data, policyChecks }: { data: AuditResponse; policyCheck
           <span>Decision</span>
           <strong>{ready ? "Ready" : "Needs Review"}</strong>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function BlockedDeploymentWarning({
+  data,
+  thresholds
+}: {
+  data: AuditResponse;
+  thresholds: FairnessThresholds;
+}) {
+  const baselineGap = data.baseline.demographic_parity_difference;
+  const blocked = baselineGap > thresholds.maxParityGap;
+  const auditLabel = attributeLabel(data.dataset.protected_attribute);
+
+  if (!blocked) return null;
+
+  return (
+    <section className="blocked-deployment">
+      <div>
+        <p className="eyebrow">Compliance hold</p>
+        <h3>Baseline model blocked from deployment.</h3>
+        <p>
+          The unmitigated model shows a {percent(baselineGap)} {auditLabel} parity gap, above the active{" "}
+          {percent(thresholds.maxParityGap)} approval threshold. FairLens requires mitigation and reviewer sign-off
+          before this model can move toward production.
+        </p>
+      </div>
+      <div className="blocked-deployment-actions">
+        <span>Do not deploy baseline</span>
+        <strong>{percent(data.mitigated.demographic_parity_difference)} mitigated gap</strong>
       </div>
     </section>
   );

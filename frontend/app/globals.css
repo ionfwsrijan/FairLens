@@ -769,6 +769,70 @@ p, span, div {
   color: var(--error);
 }
 
+.blocked-deployment {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding: 24px;
+  border: 1px solid rgba(255, 180, 171, 0.32);
+  border-radius: 4px;
+  background:
+    linear-gradient(135deg, rgba(147, 0, 10, 0.32), rgba(28, 27, 27, 0.42) 48%),
+    rgba(28, 27, 27, 0.5);
+  box-shadow: 0 18px 48px rgba(147, 0, 10, 0.14);
+}
+
+.blocked-deployment h3 {
+  margin: 0 0 10px;
+  color: #fff;
+  font-size: 26px;
+  line-height: 1.15;
+}
+
+.blocked-deployment p:last-child {
+  max-width: 880px;
+  margin: 0;
+  color: var(--on-surface-variant);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.blocked-deployment-actions {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 10px;
+  min-width: 210px;
+  padding: 16px;
+  border: 1px solid rgba(255, 180, 171, 0.2);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.blocked-deployment-actions span {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 28px;
+  align-items: center;
+  border: 1px solid rgba(255, 180, 171, 0.3);
+  border-radius: 999px;
+  padding: 4px 12px;
+  background: rgba(147, 0, 10, 0.3);
+  color: var(--error);
+  font-family: var(--font-space-grotesk), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.blocked-deployment-actions strong {
+  color: var(--primary-container);
+  font-size: 20px;
+  line-height: 1.2;
+}
+
 .threshold-panel {
   margin-bottom: 24px;
   padding: 24px;
@@ -1685,18 +1749,25 @@ p, span, div {
 
   .topbar,
   .top-actions,
-  .attribute-change-note {
+  .attribute-change-note,
+  .blocked-deployment {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .attribute-change-note {
+  .attribute-change-note,
+  .blocked-deployment {
     gap: 14px;
     padding: 18px;
   }
 
-  .attribute-change-note h3 {
+  .attribute-change-note h3,
+  .blocked-deployment h3 {
     font-size: 20px;
+  }
+
+  .blocked-deployment-actions {
+    min-width: 0;
   }
 
   .workspace-nav,
