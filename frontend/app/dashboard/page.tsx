@@ -114,6 +114,21 @@ type FairnessThresholds = {
   minDisparateImpact: number;
 };
 
+type DatasetOption = {
+  key: DatasetKey;
+  label: string;
+  protectedAttributes: ProtectedAttribute[];
+};
+
+type MetadataResponse = {
+  datasets: {
+    key: DatasetKey;
+    label: string;
+    protected_attributes: { key: ProtectedAttribute; label: string }[];
+  }[];
+  roles: { key: RoleKey; label: string }[];
+};
+
 type WarmupResponse = {
   status: "ready" | "partial";
   audit_lenses: number;
@@ -268,16 +283,12 @@ type AuditRequestOptions = {
 
 const API_URL = "";
 
-const datasetOptions: {
-  key: DatasetKey;
-  label: string;
-  protectedAttributes: ProtectedAttribute[];
-}[] = [
+const fallbackDatasetOptions: DatasetOption[] = [
   { key: "adult", label: "Adult Income", protectedAttributes: ["sex", "race"] },
   { key: "german_credit", label: "German Credit", protectedAttributes: ["sex", "age_group"] }
 ];
 
-const roleOptions: RoleKey[] = ["Executive", "ML Engineer", "Compliance Reviewer", "Auditor"];
+const fallbackRoleOptions: RoleKey[] = ["Executive", "ML Engineer", "Compliance Reviewer", "Auditor"];
 
 const defaultThresholds: FairnessThresholds = {
   maxParityGap: 0.05,
