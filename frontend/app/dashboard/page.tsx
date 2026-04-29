@@ -389,6 +389,36 @@ export default function Home() {
     : activeDataset.protectedAttributes[0];
 
   useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadMetadata() {
+      try {
+        const response = await fetch(`${API_URL}/api/metadata`, {
+          cache: "no-store",
+          signal: controller.signal
+        });
+        if (!response.ok) throw new Error(`Metadata request failed with ${response.status}`);
+        const payload = (await response.json()) as MetadataResponse;
+        if (controller.signal.aborted) return;
+        setMetadata(payload);
+        setMetadataSource("backend");
+      } catch (requestError) {
+        if (requestError instanceof Error && requestError.name === "AbortError") return;
+        setMetadataSource("fallback");
+      }
+    }
+
+    void loadMetadata();
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!roleOptions.includes(role)) {
+      setRole(roleOptions[0]);
+    }
+  }, [role, roleOptions]);
+
+  useEffect(() => {
     if (requestProtectedAttribute !== protectedAttribute) {
       setAttributeChangeNotice({
         previous: protectedAttribute,
