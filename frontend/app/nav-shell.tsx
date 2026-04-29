@@ -10,6 +10,7 @@ export function NavShell() {
         <div className="nav-links">
           <Link href="/">Home</Link>
           <Link href="/dashboard">Dashboard</Link>
+          <Link href="/report/latest">Report</Link>
         </div>
       </div>
     </nav>
