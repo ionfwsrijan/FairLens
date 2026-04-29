@@ -1588,6 +1588,172 @@ p, span, div {
   background: var(--surface-container);
 }
 
+.presenter-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  min-width: 320px;
+  overflow: auto;
+  background:
+    linear-gradient(135deg, rgba(112, 74, 255, 0.16), transparent 38%),
+    #050505;
+}
+
+.presenter-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 24px;
+  min-height: 100vh;
+  padding: 28px;
+}
+
+.presenter-topbar,
+.presenter-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(28, 27, 27, 0.72);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.presenter-topbar strong {
+  display: block;
+  color: #fff;
+  font-size: 18px;
+}
+
+.presenter-progress {
+  display: flex;
+  gap: 8px;
+}
+
+.presenter-progress button {
+  display: grid;
+  width: 34px;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.presenter-progress button.active {
+  border-color: rgba(0, 255, 157, 0.36);
+  background: rgba(0, 255, 157, 0.12);
+  color: var(--primary-container);
+  box-shadow: var(--bloom);
+}
+
+.presenter-slide {
+  display: grid;
+  align-content: center;
+  gap: 28px;
+  min-height: 0;
+  padding: clamp(28px, 5vw, 64px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(42, 42, 42, 0.94), rgba(12, 12, 12, 0.94)),
+    rgba(28, 27, 27, 0.82);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+}
+
+.presenter-slide.hero {
+  background:
+    linear-gradient(135deg, rgba(0, 255, 157, 0.08), rgba(112, 74, 255, 0.16) 42%, rgba(10, 10, 10, 0.96)),
+    #080808;
+}
+
+.presenter-slide h2 {
+  max-width: 1080px;
+  margin: 0;
+  color: #fff;
+  font-size: clamp(34px, 5vw, 72px);
+  line-height: 1.02;
+}
+
+.presenter-slide p:not(.eyebrow) {
+  max-width: 940px;
+  margin: 0;
+  color: var(--on-surface-variant);
+  font-size: clamp(17px, 2vw, 24px);
+  line-height: 1.45;
+}
+
+.presenter-metrics,
+.presenter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.presenter-metrics div,
+.presenter-card {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.presenter-metrics span,
+.presenter-card span,
+.presenter-card em {
+  display: block;
+  color: var(--on-surface-variant);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.presenter-metrics span,
+.presenter-card span {
+  margin-bottom: 10px;
+  font-family: var(--font-space-grotesk), monospace;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.presenter-metrics strong,
+.presenter-card strong {
+  display: block;
+  color: #fff;
+  font-size: clamp(24px, 3.8vw, 48px);
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.presenter-card.good strong {
+  color: var(--primary-container);
+  text-shadow: var(--bloom);
+}
+
+.presenter-card.danger strong {
+  color: var(--error);
+}
+
+.presenter-card em {
+  margin-top: 12px;
+  font-style: normal;
+}
+
+.presenter-controls span {
+  color: var(--on-surface-variant);
+  font-family: var(--font-space-grotesk), monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .history-grid {
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
@@ -1804,7 +1970,9 @@ p, span, div {
 
   .category-grid,
   .decision-grid,
-  .case-columns {
+  .case-columns,
+  .presenter-metrics,
+  .presenter-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1904,6 +2072,26 @@ p, span, div {
   .ghost-button,
   .primary-button {
     flex: 1 0 auto;
+  }
+
+  .presenter-shell {
+    gap: 14px;
+    padding: 12px;
+  }
+
+  .presenter-topbar,
+  .presenter-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .presenter-progress {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .presenter-slide {
+    padding: 24px;
   }
 
   .sidebar {
