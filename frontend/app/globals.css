@@ -884,6 +884,52 @@ p, span, div {
   box-shadow: 0 18px 48px rgba(112, 74, 255, 0.08);
 }
 
+.threshold-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.threshold-preset-grid button {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--on-surface);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+
+.threshold-preset-grid button:hover {
+  border-color: rgba(112, 74, 255, 0.36);
+  background: rgba(112, 74, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.threshold-preset-grid button.active {
+  border-color: rgba(0, 255, 157, 0.28);
+  background:
+    linear-gradient(135deg, rgba(0, 255, 157, 0.12), rgba(112, 74, 255, 0.12)),
+    rgba(255, 255, 255, 0.04);
+  box-shadow: 0 10px 30px rgba(0, 255, 157, 0.06);
+}
+
+.threshold-preset-grid strong {
+  color: #fff;
+  font-size: 15px;
+}
+
+.threshold-preset-grid span {
+  color: var(--on-surface-variant);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .threshold-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
