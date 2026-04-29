@@ -634,9 +634,38 @@ function AttributeChangeNote({
   );
 }
 
-function JudgeSummary({ data }: { data: AuditResponse }) {
-  const passed = data.policy.filter((check) => check.status === "Pass").length;
-  const ready = passed === data.policy.length && data.mitigated.demographic_parity_difference < 0.05;
+function buildLivePolicyChecks(data: AuditResponse, thresholds: FairnessThresholds): PolicyCheck[] {
+  return [
+    {
+      name: "Demographic parity gap",
+      target: `<= ${percent(thresholds.maxParityGap)}`,
+      baseline: data.baseline.demographic_parity_difference,
+      mitigated: data.mitigated.demographic_parity_difference,
+      status: data.mitigated.demographic_parity_difference <= thresholds.maxParityGap ? "Pass" : "Review",
+      owner: "Fairness reviewer"
+    },
+    {
+      name: "Disparate impact ratio",
+      target: `>= ${number(thresholds.minDisparateImpact, 2)}`,
+      baseline: data.baseline.demographic_parity_ratio,
+      mitigated: data.mitigated.demographic_parity_ratio,
+      status: data.mitigated.demographic_parity_ratio >= thresholds.minDisparateImpact ? "Pass" : "Review",
+      owner: "Compliance lead"
+    },
+    {
+      name: "Minimum mitigated accuracy",
+      target: `>= ${percent(thresholds.minAccuracy)}`,
+      baseline: data.baseline.accuracy,
+      mitigated: data.mitigated.accuracy,
+      status: data.mitigated.accuracy >= thresholds.minAccuracy ? "Pass" : "Review",
+      owner: "Product owner"
+    }
+  ];
+}
+
+function JudgeSummary({ data, policyChecks }: { data: AuditResponse; policyChecks: PolicyCheck[] }) {
+  const passed = policyChecks.filter((check) => check.status === "Pass").length;
+  const ready = policyChecks.length > 0 && passed === policyChecks.length;
   const auditLabel = attributeLabel(data.dataset.protected_attribute);
 
   return (
@@ -671,6 +700,71 @@ function JudgeSummary({ data }: { data: AuditResponse }) {
   );
 }
 
+function ThresholdSettings({
+  thresholds,
+  onChange
+}: {
+  thresholds: FairnessThresholds;
+  onChange: (thresholds: FairnessThresholds) => void;
+}) {
+  function updateThreshold(key: keyof FairnessThresholds, value: number) {
+    onChange({ ...thresholds, [key]: value });
+  }
+
+  return (
+    <section className="threshold-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Fairness thresholds</p>
+          <h2>Live policy settings</h2>
+        </div>
+        <span className="status-chip">Updates gates instantly</span>
+      </div>
+      <div className="threshold-grid">
+        <label>
+          <span>Acceptable parity gap</span>
+          <strong>{percent(thresholds.maxParityGap)}</strong>
+          <input
+            type="range"
+            min="0.01"
+            max="0.2"
+            step="0.01"
+            value={thresholds.maxParityGap}
+            onChange={(event) => updateThreshold("maxParityGap", Number(event.target.value))}
+          />
+          <small>Lower is stricter for demographic parity.</small>
+        </label>
+        <label>
+          <span>Minimum accuracy</span>
+          <strong>{percent(thresholds.minAccuracy)}</strong>
+          <input
+            type="range"
+            min="0.5"
+            max="0.95"
+            step="0.01"
+            value={thresholds.minAccuracy}
+            onChange={(event) => updateThreshold("minAccuracy", Number(event.target.value))}
+          />
+          <small>Controls the minimum acceptable mitigated accuracy.</small>
+        </label>
+        <label>
+          <span>Disparate impact threshold</span>
+          <strong>{number(thresholds.minDisparateImpact, 2)}</strong>
+          <input
+            type="range"
+            min="0.6"
+            max="1"
+            step="0.01"
+            value={thresholds.minDisparateImpact}
+            onChange={(event) => updateThreshold("minDisparateImpact", Number(event.target.value))}
+          />
+          <small>Higher requires closer selection-rate parity.</small>
+        </label>
+      </div>
+    </section>
+  );
+}
+
 function ContextStrip({ data, lastRun }: { data: AuditResponse; lastRun: string }) {
   return (
     <section className="context-strip">
@@ -698,8 +792,8 @@ function ContextStrip({ data, lastRun }: { data: AuditResponse; lastRun: string 
   );
 }
 
-function CommandCenter({ data }: { data: AuditResponse }) {
-  const passed = data.policy.filter((check) => check.status === "Pass").length;
+function CommandCenter({ data, policyChecks }: { data: AuditResponse; policyChecks: PolicyCheck[] }) {
+  const passed = policyChecks.filter((check) => check.status === "Pass").length;
 
   return (
     <section className="tab-grid">
@@ -745,13 +839,13 @@ function CommandCenter({ data }: { data: AuditResponse }) {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Policy gates</p>
-            <h2>{passed} of {data.policy.length} checks passing</h2>
+            <h2>{passed} of {policyChecks.length} checks passing</h2>
           </div>
-          <span className={passed === data.policy.length ? "status-chip good" : "status-chip danger"}>
-            {passed === data.policy.length ? "Ready" : "Review"}
+          <span className={passed === policyChecks.length ? "status-chip good" : "status-chip danger"}>
+            {passed === policyChecks.length ? "Ready" : "Review"}
           </span>
         </div>
-        <PolicyTable checks={data.policy} compact />
+        <PolicyTable checks={policyChecks} compact />
       </article>
     </section>
   );
@@ -1146,7 +1240,7 @@ function MitigationLab({
   );
 }
 
-function GovernanceHub({ data }: { data: AuditResponse }) {
+function GovernanceHub({ data, policyChecks }: { data: AuditResponse; policyChecks: PolicyCheck[] }) {
   return (
     <section className="tab-grid">
       <article className="panel span-5">
@@ -1195,7 +1289,7 @@ function GovernanceHub({ data }: { data: AuditResponse }) {
             <h2>Mitigated model control gates</h2>
           </div>
         </div>
-        <PolicyTable checks={data.policy} />
+        <PolicyTable checks={policyChecks} />
       </article>
 
       <article className="panel span-5">
