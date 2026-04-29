@@ -694,6 +694,81 @@ p, span, div {
   margin-top: 2px;
 }
 
+.judge-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.45fr);
+  gap: 24px;
+  margin-bottom: 24px;
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  background:
+    linear-gradient(135deg, rgba(0, 255, 157, 0.08), rgba(28, 27, 27, 0.38) 46%),
+    rgba(28, 27, 27, 0.42);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+}
+
+.judge-summary.review {
+  border-color: rgba(255, 180, 171, 0.22);
+  background:
+    linear-gradient(135deg, rgba(147, 0, 10, 0.2), rgba(28, 27, 27, 0.38) 46%),
+    rgba(28, 27, 27, 0.42);
+}
+
+.judge-summary-copy h3 {
+  margin: 0 0 10px;
+  color: #fff;
+  font-size: 26px;
+  line-height: 1.18;
+}
+
+.judge-summary-copy p:last-child {
+  margin: 0;
+  color: var(--on-surface-variant);
+  font-size: 15px;
+}
+
+.judge-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.judge-summary-grid div {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.judge-summary-grid span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--on-surface-variant);
+  font-family: var(--font-space-grotesk), monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.judge-summary-grid strong {
+  display: block;
+  color: #fff;
+  font-size: 24px;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.judge-summary.ready .judge-summary-grid div:last-child strong {
+  color: var(--primary-container);
+}
+
+.judge-summary.review .judge-summary-grid div:last-child strong {
+  color: var(--error);
+}
+
 /* Grid Spans */
 .span-4 { grid-column: span 4; }
 .span-5 { grid-column: span 5; }

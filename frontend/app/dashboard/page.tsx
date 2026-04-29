@@ -536,6 +536,7 @@ export default function Home() {
         ) : data ? (
           <>
             <ContextStrip data={data} lastRun={lastRun} />
+            <JudgeSummary data={data} />
             {activeView === "command" && <CommandCenter data={data} />}
             {activeView === "data" && <DataRoom data={data} />}
             {activeView === "audit" && <AuditWorkbench data={data} />}
@@ -599,6 +600,43 @@ function AttributeChangeNote({
       <span className="status-chip">
         {data ? `${percent(data.baseline.demographic_parity_difference)} current gap` : `Updating ${notice.datasetLabel}`}
       </span>
+    </section>
+  );
+}
+
+function JudgeSummary({ data }: { data: AuditResponse }) {
+  const passed = data.policy.filter((check) => check.status === "Pass").length;
+  const ready = passed === data.policy.length && data.mitigated.demographic_parity_difference < 0.05;
+  const auditLabel = attributeLabel(data.dataset.protected_attribute);
+
+  return (
+    <section className={`judge-summary ${ready ? "ready" : "review"}`}>
+      <div className="judge-summary-copy">
+        <p className="eyebrow">Judge summary</p>
+        <h3>{ready ? "Mitigated model is ready for controlled review." : "Baseline model needs fairness review."}</h3>
+        <p>
+          FairLens found a {percent(data.baseline.demographic_parity_difference)} {auditLabel} parity gap and reduced it
+          to {percent(data.mitigated.demographic_parity_difference)} after mitigation.
+        </p>
+      </div>
+      <div className="judge-summary-grid">
+        <div>
+          <span>Bias found</span>
+          <strong>{percent(data.baseline.demographic_parity_difference)}</strong>
+        </div>
+        <div>
+          <span>Mitigation applied</span>
+          <strong>Fairlearn</strong>
+        </div>
+        <div>
+          <span>Bias reduced by</span>
+          <strong>{percent(data.comparison.bias_reduction)}</strong>
+        </div>
+        <div>
+          <span>Decision</span>
+          <strong>{ready ? "Ready" : "Needs Review"}</strong>
+        </div>
+      </div>
     </section>
   );
 }
