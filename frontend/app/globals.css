@@ -1864,6 +1864,7 @@ p, span, div {
   .history-grid,
   .drift-grid,
   .judge-summary-grid,
+  .threshold-preset-grid,
   .threshold-grid,
   .role-metric-grid,
   .role-action-grid {
