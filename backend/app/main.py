@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from .audit import run_audit
+from .audit import DATASET_CATALOG, SUPPORTED_ROLES, run_audit
 from .custom_audit import run_custom_csv_audit
 from .reporting import build_governance_report
 from .storage import append_audit_run, list_audit_runs, list_reviews, upsert_review
@@ -35,6 +35,12 @@ WARMUP_ROLES: tuple[Literal["Executive", "ML Engineer", "Compliance Reviewer", "
     "Auditor",
 )
 
+ATTRIBUTE_LABELS = {
+    "sex": "Gender",
+    "race": "Race",
+    "age_group": "Age group",
+}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -53,6 +59,35 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "fairlens-api"}
+
+
+@app.get("/api/metadata")
+def metadata() -> dict:
+    return {
+        "service": "fairlens-api",
+        "datasets": [
+            {
+                "key": key,
+                "label": value["label"],
+                "name": value["name"],
+                "source": value["source"],
+                "target": value["target"],
+                "use_case": value["use_case"],
+                "positive_label": value["positive_label"],
+                "default_protected_attribute": value["protected_attributes"][0],
+                "protected_attributes": [
+                    {"key": attribute, "label": ATTRIBUTE_LABELS.get(attribute, attribute)}
+                    for attribute in value["protected_attributes"]
+                ],
+            }
+            for key, value in DATASET_CATALOG.items()
+        ],
+        "roles": [{"key": role, "label": role} for role in SUPPORTED_ROLES],
+        "warmup_combinations": [
+            {"dataset": dataset, "protected_attribute": protected_attribute}
+            for dataset, protected_attribute in WARMUP_COMBINATIONS
+        ],
+    }
 
 
 @app.get("/api/warmup")
