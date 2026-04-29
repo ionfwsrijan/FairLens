@@ -660,6 +660,40 @@ p, span, div {
   white-space: nowrap;
 }
 
+.attribute-change-note {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding: 22px 24px;
+  border: 1px solid rgba(0, 255, 157, 0.22);
+  border-radius: 4px;
+  background:
+    linear-gradient(135deg, rgba(0, 255, 157, 0.1), rgba(28, 27, 27, 0.34) 44%),
+    rgba(28, 27, 27, 0.45);
+  box-shadow: 0 12px 36px rgba(0, 255, 157, 0.05);
+}
+
+.attribute-change-note h3 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.attribute-change-note p:last-child {
+  max-width: 820px;
+  margin: 0;
+  color: var(--on-surface-variant);
+  font-size: 15px;
+}
+
+.attribute-change-note .status-chip {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
 /* Grid Spans */
 .span-4 { grid-column: span 4; }
 .span-5 { grid-column: span 5; }
@@ -1441,9 +1475,19 @@ p, span, div {
   }
 
   .topbar,
-  .top-actions {
+  .top-actions,
+  .attribute-change-note {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .attribute-change-note {
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .attribute-change-note h3 {
+    font-size: 20px;
   }
 
   .workspace-nav,

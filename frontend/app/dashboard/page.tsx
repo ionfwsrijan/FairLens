@@ -102,6 +102,12 @@ type RoleContext = {
   report_emphasis: string;
 };
 
+type AttributeChangeNotice = {
+  previous: ProtectedAttribute;
+  current: ProtectedAttribute;
+  datasetLabel: string;
+};
+
 type AuditResponse = {
   generated_at: string;
   dataset: {
@@ -309,6 +315,7 @@ export default function Home() {
   const [mitigationVisible, setMitigationVisible] = useState(true);
   const [selectedCase, setSelectedCase] = useState(0);
   const [demoStep, setDemoStep] = useState(0);
+  const [attributeChangeNotice, setAttributeChangeNotice] = useState<AttributeChangeNotice | null>(null);
   const activeDataset = datasetOptions.find((item) => item.key === datasetKey) ?? datasetOptions[0];
   const requestProtectedAttribute = activeDataset.protectedAttributes.includes(protectedAttribute)
     ? protectedAttribute
@@ -316,6 +323,11 @@ export default function Home() {
 
   useEffect(() => {
     if (requestProtectedAttribute !== protectedAttribute) {
+      setAttributeChangeNotice({
+        previous: protectedAttribute,
+        current: requestProtectedAttribute,
+        datasetLabel: activeDataset.label
+      });
       setProtectedAttribute(requestProtectedAttribute);
       return;
     }
@@ -364,10 +376,29 @@ export default function Home() {
 
   function selectDataset(nextDatasetKey: DatasetKey) {
     const nextDataset = datasetOptions.find((item) => item.key === nextDatasetKey) ?? datasetOptions[0];
+    const nextProtectedAttribute = nextDataset.protectedAttributes.includes(protectedAttribute)
+      ? protectedAttribute
+      : nextDataset.protectedAttributes[0];
+
     setDatasetKey(nextDatasetKey);
-    if (!nextDataset.protectedAttributes.includes(protectedAttribute)) {
-      setProtectedAttribute(nextDataset.protectedAttributes[0]);
+    if (nextProtectedAttribute !== protectedAttribute) {
+      setAttributeChangeNotice({
+        previous: protectedAttribute,
+        current: nextProtectedAttribute,
+        datasetLabel: nextDataset.label
+      });
+      setProtectedAttribute(nextProtectedAttribute);
     }
+  }
+
+  function selectProtectedAttribute(nextAttribute: ProtectedAttribute) {
+    if (nextAttribute === protectedAttribute) return;
+    setAttributeChangeNotice({
+      previous: requestProtectedAttribute,
+      current: nextAttribute,
+      datasetLabel: activeDataset.label
+    });
+    setProtectedAttribute(nextAttribute);
   }
 
   const lastRun = useMemo(() => {
@@ -462,7 +493,7 @@ export default function Home() {
                 <button
                   key={attribute}
                   className={protectedAttribute === attribute ? "active" : ""}
-                  onClick={() => setProtectedAttribute(attribute)}
+                  onClick={() => selectProtectedAttribute(attribute)}
                 >
                   {attributeLabel(attribute)}
                 </button>
@@ -483,6 +514,10 @@ export default function Home() {
             </button>
           </div>
         </header>
+
+        {attributeChangeNotice && (
+          <AttributeChangeNote notice={attributeChangeNotice} data={isStaleAudit ? null : data} />
+        )}
 
         {error && (
           <section className="error-panel">
@@ -537,6 +572,35 @@ export default function Home() {
 
 function activeViewTitle(view: ViewKey) {
   return views.find((item) => item.key === view)?.label ?? "Command Center";
+}
+
+function AttributeChangeNote({
+  notice,
+  data
+}: {
+  notice: AttributeChangeNotice;
+  data: AuditResponse | null;
+}) {
+  const previous = attributeLabel(notice.previous);
+  const current = attributeLabel(notice.current);
+
+  return (
+    <section className="attribute-change-note">
+      <div>
+        <p className="eyebrow">Why this changed</p>
+        <h3>
+          Metrics changed because FairLens is now auditing {current} groups instead of {previous} groups.
+        </h3>
+        <p>
+          Group metrics, parity gaps, policy gates, mitigation outputs, and decision cases update for the selected
+          protected audit. Global dataset fields like age, education, work history, and row counts may stay the same.
+        </p>
+      </div>
+      <span className="status-chip">
+        {data ? `${percent(data.baseline.demographic_parity_difference)} current gap` : `Updating ${notice.datasetLabel}`}
+      </span>
+    </section>
+  );
 }
 
 function ContextStrip({ data, lastRun }: { data: AuditResponse; lastRun: string }) {
