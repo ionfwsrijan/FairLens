@@ -1387,6 +1387,7 @@ function createSimplePdf(lines: PdfTextLine[]) {
       `0 ${pageHeight - 72} ${pageWidth} 72 re f`,
       "0.00 1.00 0.62 rg",
       `0 ${pageHeight - 76} ${pageWidth} 4 re f`,
+      "BT",
       "1 1 1 rg",
       "/F2 13 Tf",
       `1 0 0 1 ${margin} ${pageHeight - 42} Tm`,
@@ -1395,16 +1396,19 @@ function createSimplePdf(lines: PdfTextLine[]) {
       "/F1 8 Tf",
       `1 0 0 1 ${pageWidth - 138} ${pageHeight - 42} Tm`,
       `(Responsible AI Audit) Tj`,
+      "ET",
     ];
     y = pageHeight - 104;
   }
 
   function endPage() {
     commands.push(
+      "BT",
       "0.45 0.49 0.46 rg",
       "/F1 8 Tf",
       `1 0 0 1 ${margin} 30 Tm`,
-      `(FairLens governance evidence | Page ${pageNumber}) Tj`
+      `(FairLens governance evidence | Page ${pageNumber}) Tj`,
+      "ET"
     );
     pages.push(commands.join("\n"));
     pageNumber += 1;
@@ -1424,18 +1428,19 @@ function createSimplePdf(lines: PdfTextLine[]) {
     const blockHeight = wrapped.length * lineHeight + (item.gapAfter ?? 4);
     addPageIfNeeded(blockHeight);
 
-    commands.push(pdfColor(item.color ?? "dark"), `/${item.bold ? "F2" : "F1"} ${size} Tf`);
+    commands.push("BT", pdfColor(item.color ?? "dark"), `/${item.bold ? "F2" : "F1"} ${size} Tf`);
     for (const line of wrapped) {
       commands.push(`1 0 0 1 ${margin} ${y} Tm`, `(${escapePdfText(line)}) Tj`);
       y -= lineHeight;
     }
+    commands.push("ET");
     y -= item.gapAfter ?? 4;
   }
   endPage();
 
   const objects: string[] = [
     "<< /Type /Catalog /Pages 2 0 R >>",
-    `<< /Type /Pages /Kids ${pages.map((_, index) => `${index + 3} 0 R`).join(" ")} /Count ${pages.length} >>`,
+    `<< /Type /Pages /Kids [${pages.map((_, index) => `${index + 3} 0 R`).join(" ")}] /Count ${pages.length} >>`,
   ];
 
   const contentStart = 3 + pages.length;
