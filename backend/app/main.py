@@ -1,4 +1,5 @@
 import os
+from time import perf_counter
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Query
@@ -15,6 +16,23 @@ app = FastAPI(
     title="FairLens API",
     description="Fairness auditing, explainability, and mitigation service for high-stakes AI decisions.",
     version="1.0.0",
+)
+
+WARMUP_COMBINATIONS: tuple[
+    tuple[Literal["adult", "german_credit"], Literal["sex", "race", "age_group"]],
+    ...,
+] = (
+    ("adult", "sex"),
+    ("adult", "race"),
+    ("german_credit", "sex"),
+    ("german_credit", "age_group"),
+)
+
+WARMUP_ROLES: tuple[Literal["Executive", "ML Engineer", "Compliance Reviewer", "Auditor"], ...] = (
+    "Executive",
+    "ML Engineer",
+    "Compliance Reviewer",
+    "Auditor",
 )
 
 app.add_middleware(
@@ -35,6 +53,64 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "fairlens-api"}
+
+
+@app.get("/api/warmup")
+@app.post("/api/warmup")
+def warmup(
+    force_refresh: bool = Query(
+        False,
+        description="Recompute the first role for each audit lens before validating cached role-specific payloads.",
+    )
+) -> dict:
+    started = perf_counter()
+    warmed: list[dict] = []
+    errors: list[dict] = []
+
+    for dataset, protected_attribute in WARMUP_COMBINATIONS:
+        for role_index, role in enumerate(WARMUP_ROLES):
+            try:
+                result = run_audit(
+                    protected_attribute=protected_attribute,
+                    force_refresh=force_refresh and role_index == 0,
+                    dataset_key=dataset,
+                    role=role,
+                )
+                warmed.append(
+                    {
+                        "dataset": dataset,
+                        "protected_attribute": protected_attribute,
+                        "role": role,
+                        "cache_hit": bool(result.get("cache", {}).get("hit")),
+                        "baseline_gap": result["baseline"]["demographic_parity_difference"],
+                        "mitigated_gap": result["mitigated"]["demographic_parity_difference"],
+                        "accuracy": result["mitigated"]["accuracy"],
+                    }
+                )
+            except Exception as exc:
+                errors.append(
+                    {
+                        "dataset": dataset,
+                        "protected_attribute": protected_attribute,
+                        "role": role,
+                        "error": str(exc),
+                    }
+                )
+
+    response = {
+        "status": "ready" if not errors else "partial",
+        "audit_lenses": len(WARMUP_COMBINATIONS),
+        "roles": len(WARMUP_ROLES),
+        "runs": len(warmed),
+        "cache_hits": sum(1 for item in warmed if item["cache_hit"]),
+        "computed": sum(1 for item in warmed if not item["cache_hit"]),
+        "elapsed_ms": round((perf_counter() - started) * 1000, 2),
+        "warmed": warmed,
+        "errors": errors,
+    }
+    if errors:
+        raise HTTPException(status_code=500, detail=response)
+    return response
 
 
 @app.get("/api/audit")
