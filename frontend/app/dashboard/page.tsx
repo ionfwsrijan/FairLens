@@ -339,6 +339,7 @@ export default function Home() {
   const [selectedCase, setSelectedCase] = useState(0);
   const [demoStep, setDemoStep] = useState(0);
   const [attributeChangeNotice, setAttributeChangeNotice] = useState<AttributeChangeNotice | null>(null);
+  const [thresholds, setThresholds] = useState<FairnessThresholds>(defaultThresholds);
   const activeDataset = datasetOptions.find((item) => item.key === datasetKey) ?? datasetOptions[0];
   const requestProtectedAttribute = activeDataset.protectedAttributes.includes(protectedAttribute)
     ? protectedAttribute
@@ -438,6 +439,10 @@ export default function Home() {
       (data.dataset.key !== datasetKey ||
         data.dataset.protected_attribute !== requestProtectedAttribute ||
         data.role_context.role !== role)
+  );
+  const livePolicyChecks = useMemo(
+    () => (data ? buildLivePolicyChecks(data, thresholds) : []),
+    [data, thresholds]
   );
 
   return (
@@ -559,8 +564,9 @@ export default function Home() {
         ) : data ? (
           <>
             <ContextStrip data={data} lastRun={lastRun} />
-            <JudgeSummary data={data} />
-            {activeView === "command" && <CommandCenter data={data} />}
+            <JudgeSummary data={data} policyChecks={livePolicyChecks} />
+            <ThresholdSettings thresholds={thresholds} onChange={setThresholds} />
+            {activeView === "command" && <CommandCenter data={data} policyChecks={livePolicyChecks} />}
             {activeView === "data" && <DataRoom data={data} />}
             {activeView === "audit" && <AuditWorkbench data={data} />}
             {activeView === "cases" && (
@@ -573,13 +579,14 @@ export default function Home() {
                 onToggle={() => setMitigationVisible((value) => !value)}
               />
             )}
-            {activeView === "governance" && <GovernanceHub data={data} />}
+            {activeView === "governance" && <GovernanceHub data={data} policyChecks={livePolicyChecks} />}
             {activeView === "report" && (
               <AIReportCenter
                 data={data}
                 datasetKey={datasetKey}
                 protectedAttribute={protectedAttribute}
                 role={role}
+                policyChecks={livePolicyChecks}
               />
             )}
             {activeView === "custom" && <CustomAuditLab />}
