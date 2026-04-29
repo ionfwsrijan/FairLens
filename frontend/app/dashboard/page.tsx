@@ -108,6 +108,12 @@ type AttributeChangeNotice = {
   datasetLabel: string;
 };
 
+type FairnessThresholds = {
+  maxParityGap: number;
+  minAccuracy: number;
+  minDisparateImpact: number;
+};
+
 type AuditResponse = {
   generated_at: string;
   dataset: {
@@ -261,6 +267,12 @@ const datasetOptions: {
 ];
 
 const roleOptions: RoleKey[] = ["Executive", "ML Engineer", "Compliance Reviewer", "Auditor"];
+
+const defaultThresholds: FairnessThresholds = {
+  maxParityGap: 0.05,
+  minAccuracy: 0.75,
+  minDisparateImpact: 0.8,
+};
 
 const views: { key: ViewKey; label: string; kicker: string }[] = [
   { key: "command", label: "Command Center", kicker: "Executive view" },
