@@ -11,7 +11,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.audit import CACHE_SCHEMA_VERSION, run_audit
-from app.main import WARMUP_COMBINATIONS, WARMUP_ROLES, warmup
+from app.main import WARMUP_COMBINATIONS, WARMUP_ROLES, metadata as backend_metadata, warmup
 
 
 REQUIRED_TOP_LEVEL_KEYS = {
@@ -120,6 +120,24 @@ class AuditMatrixTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             run_audit(dataset_key="german_credit", protected_attribute="race", role="Executive")
+
+    def test_metadata_exposes_frontend_selection_catalog(self) -> None:
+        payload = backend_metadata()
+        dataset_map = {item["key"]: item for item in payload["datasets"]}
+        role_keys = [item["key"] for item in payload["roles"]]
+
+        self.assertEqual(set(dataset_map), {"adult", "german_credit"})
+        self.assertEqual(role_keys, list(WARMUP_ROLES))
+        self.assertEqual(
+            [item["key"] for item in dataset_map["adult"]["protected_attributes"]],
+            ["sex", "race"],
+        )
+        self.assertEqual(
+            [item["key"] for item in dataset_map["german_credit"]["protected_attributes"]],
+            ["sex", "age_group"],
+        )
+        self.assertEqual(dataset_map["adult"]["label"], "Adult Income")
+        self.assertEqual(dataset_map["german_credit"]["label"], "German Credit")
 
     def assert_metric_contract(self, metrics: dict) -> None:
         self.assertTrue(METRIC_KEYS.issubset(metrics.keys()))
