@@ -348,6 +348,20 @@ function roleMetricValue(metric: RoleMetric) {
   return String(metric.value);
 }
 
+function metadataToDatasetOptions(metadata: MetadataResponse | null): DatasetOption[] {
+  if (!metadata?.datasets?.length) return fallbackDatasetOptions;
+  return metadata.datasets.map((dataset) => ({
+    key: dataset.key,
+    label: dataset.label,
+    protectedAttributes: dataset.protected_attributes.map((attribute) => attribute.key)
+  }));
+}
+
+function metadataToRoleOptions(metadata: MetadataResponse | null): RoleKey[] {
+  if (!metadata?.roles?.length) return fallbackRoleOptions;
+  return metadata.roles.map((item) => item.key);
+}
+
 export default function Home() {
   const [datasetKey, setDatasetKey] = useState<DatasetKey>("adult");
   const [protectedAttribute, setProtectedAttribute] = useState<ProtectedAttribute>("sex");
@@ -365,6 +379,10 @@ export default function Home() {
   const [warmingDemo, setWarmingDemo] = useState(false);
   const [warmupResult, setWarmupResult] = useState<WarmupResponse | null>(null);
   const [warmupError, setWarmupError] = useState<string | null>(null);
+  const [metadata, setMetadata] = useState<MetadataResponse | null>(null);
+  const [metadataSource, setMetadataSource] = useState<"backend" | "fallback">("fallback");
+  const datasetOptions = useMemo(() => metadataToDatasetOptions(metadata), [metadata]);
+  const roleOptions = useMemo(() => metadataToRoleOptions(metadata), [metadata]);
   const activeDataset = datasetOptions.find((item) => item.key === datasetKey) ?? datasetOptions[0];
   const requestProtectedAttribute = activeDataset.protectedAttributes.includes(protectedAttribute)
     ? protectedAttribute
