@@ -413,8 +413,9 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!roleOptions.includes(role)) {
-      setRole(roleOptions[0]);
+    const defaultRole = roleOptions[0];
+    if (defaultRole && !roleOptions.includes(role)) {
+      setRole(defaultRole);
     }
   }, [role, roleOptions]);
 
@@ -608,6 +609,8 @@ export default function Home() {
         <div className="sidebar-footer">
           <span>Dataset</span>
           <strong>{data?.dataset.name ?? "UCI Adult Income"}</strong>
+          <span>Config</span>
+          <strong>{metadataSource === "backend" ? "Backend catalog" : "Fallback catalog"}</strong>
         </div>
       </aside>
 
