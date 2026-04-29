@@ -86,6 +86,29 @@ GERMAN_CREDIT_COLUMNS = [
     "credit_risk",
 ]
 
+DATASET_CATALOG: dict[str, dict[str, Any]] = {
+    "adult": {
+        "name": "UCI Adult Income",
+        "label": "Adult Income",
+        "target": "Predict whether annual income is greater than $50K",
+        "positive_label": ADULT_POSITIVE_LABEL,
+        "protected_attributes": ["sex", "race"],
+        "protected_exclusions": list(ADULT_PROTECTED_COLUMNS),
+        "use_case": "Income eligibility risk screening",
+        "source": "UCI Machine Learning Repository",
+    },
+    "german_credit": {
+        "name": "Statlog German Credit",
+        "label": "German Credit",
+        "target": "Predict whether a credit applicant is a good credit risk",
+        "positive_label": GERMAN_POSITIVE_LABEL,
+        "protected_attributes": ["sex", "age_group"],
+        "protected_exclusions": list(GERMAN_PROTECTED_COLUMNS),
+        "use_case": "Credit risk screening",
+        "source": "UCI Machine Learning Repository",
+    },
+}
+
 PROXY_RISK_FEATURES = {
     "relationship": "High",
     "marital-status": "High",
@@ -422,25 +445,18 @@ def build_role_context(audit: dict[str, Any], role: str) -> dict[str, Any]:
 def load_dataset(dataset_key: str) -> tuple[pd.DataFrame, pd.Series, str, dict[str, Any]]:
     if dataset_key == "adult":
         X, y, source = load_adult_dataset()
-        return X, normalize_adult_target(y), source, {
-            "name": "UCI Adult Income",
-            "target": "Predict whether annual income is greater than $50K",
-            "positive_label": ADULT_POSITIVE_LABEL,
-            "protected_attributes": ["sex", "race"],
-            "protected_exclusions": list(ADULT_PROTECTED_COLUMNS),
-            "use_case": "Income eligibility risk screening",
-        }
+        return X, normalize_adult_target(y), source, dataset_catalog_entry(dataset_key)
     if dataset_key == "german_credit":
         X, y, source = load_german_credit_dataset()
-        return X, y, source, {
-            "name": "Statlog German Credit",
-            "target": "Predict whether a credit applicant is a good credit risk",
-            "positive_label": GERMAN_POSITIVE_LABEL,
-            "protected_attributes": ["sex", "age_group"],
-            "protected_exclusions": list(GERMAN_PROTECTED_COLUMNS),
-            "use_case": "Credit risk screening",
-        }
+        return X, y, source, dataset_catalog_entry(dataset_key)
     raise ValueError(f"Unsupported dataset '{dataset_key}'.")
+
+
+def dataset_catalog_entry(dataset_key: str) -> dict[str, Any]:
+    entry = dict(DATASET_CATALOG[dataset_key])
+    entry["protected_attributes"] = list(entry["protected_attributes"])
+    entry["protected_exclusions"] = list(entry["protected_exclusions"])
+    return entry
 
 
 def load_adult_dataset() -> tuple[pd.DataFrame, pd.Series, str]:
