@@ -1408,6 +1408,76 @@ p, span, div {
 .drift-card .track div { height: 100%; background: #ffcc66; }
 .drift-card .mitigated-track div { background: var(--primary-container); }
 
+.audit-timeline {
+  display: grid;
+  gap: 16px;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.timeline-index {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+  border: 1px solid rgba(0, 255, 157, 0.22);
+  border-radius: 4px;
+  color: var(--primary-container);
+  font-family: var(--font-space-grotesk), monospace;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(0, 255, 157, 0.08);
+}
+
+.timeline-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.timeline-title,
+.timeline-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.timeline-title span,
+.timeline-meta span,
+.timeline-bars span {
+  color: var(--on-surface-variant);
+  font-size: 13px;
+}
+
+.timeline-title span {
+  font-family: var(--font-space-grotesk), monospace;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.timeline-title strong {
+  color: var(--primary-container);
+  font-size: 14px;
+}
+
+.timeline-bars {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.timeline-bars .track {
+  margin-top: 6px;
+}
+
 /* Global Navbar */
 .global-navbar {
   position: fixed;
@@ -1592,6 +1662,21 @@ p, span, div {
 
   .judge-summary-copy h3 {
     font-size: 22px;
+  }
+
+  .timeline-item {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-index {
+    min-height: 34px;
+  }
+
+  .timeline-title,
+  .timeline-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
   }
 
   .segmented {
