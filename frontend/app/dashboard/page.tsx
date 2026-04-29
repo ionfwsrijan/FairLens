@@ -1313,12 +1313,14 @@ function AIReportCenter({
   data,
   datasetKey,
   protectedAttribute,
-  role
+  role,
+  policyChecks
 }: {
   data: AuditResponse;
   datasetKey: DatasetKey;
   protectedAttribute: ProtectedAttribute;
   role: RoleKey;
+  policyChecks: PolicyCheck[];
 }) {
   const [report, setReport] = useState<GovernanceReport | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1363,7 +1365,7 @@ function AIReportCenter({
 
   function downloadPdfReport() {
     if (!report) return;
-    const pdf = buildGovernancePdf(data, report);
+    const pdf = buildGovernancePdf(data, report, policyChecks);
     const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -1460,10 +1462,10 @@ type PdfTextLine = {
   gapAfter?: number;
 };
 
-function buildGovernancePdf(data: AuditResponse, report: GovernanceReport) {
+function buildGovernancePdf(data: AuditResponse, report: GovernanceReport, policyChecks: PolicyCheck[]) {
   const auditLabel = attributeLabel(data.dataset.protected_attribute);
-  const ready = data.policy.every((check) => check.status === "Pass") &&
-    data.mitigated.demographic_parity_difference < 0.05;
+  const ready = policyChecks.length > 0 && policyChecks.every((check) => check.status === "Pass");
+  const passed = policyChecks.filter((check) => check.status === "Pass").length;
   const summaryLines: PdfTextLine[] = [
     { text: "FairLens AI Governance Report", size: 22, bold: true, color: "dark", gapAfter: 12 },
     { text: `${data.dataset.name} | ${auditLabel} audit | ${data.role_context.role} lens`, size: 11, color: "muted", gapAfter: 10 },
@@ -1479,7 +1481,7 @@ function buildGovernancePdf(data: AuditResponse, report: GovernanceReport) {
     { text: `Baseline parity gap: ${percent(data.baseline.demographic_parity_difference)}`, size: 10 },
     { text: `Mitigated parity gap: ${percent(data.mitigated.demographic_parity_difference)}`, size: 10 },
     { text: `Disparate impact ratio: ${number(data.mitigated.demographic_parity_ratio, 2)}`, size: 10 },
-    { text: `Policy gates: ${data.policy.filter((check) => check.status === "Pass").length} of ${data.policy.length} passing`, size: 10, gapAfter: 16 },
+    { text: `Policy gates: ${passed} of ${policyChecks.length} passing`, size: 10, gapAfter: 16 },
     { text: "Role-Specific Focus", size: 15, bold: true, color: "dark", gapAfter: 8 },
     { text: data.role_context.summary, size: 10 },
     { text: `Decision question: ${data.role_context.decision_question}`, size: 10 },
