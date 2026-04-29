@@ -1328,6 +1328,181 @@ function AIReportCenter({
   );
 }
 
+type PdfTextLine = {
+  text: string;
+  size?: number;
+  bold?: boolean;
+  color?: "dark" | "muted" | "green" | "red";
+  gapAfter?: number;
+};
+
+function buildGovernancePdf(data: AuditResponse, report: GovernanceReport) {
+  const auditLabel = attributeLabel(data.dataset.protected_attribute);
+  const ready = data.policy.every((check) => check.status === "Pass") &&
+    data.mitigated.demographic_parity_difference < 0.05;
+  const summaryLines: PdfTextLine[] = [
+    { text: "FairLens AI Governance Report", size: 22, bold: true, color: "dark", gapAfter: 12 },
+    { text: `${data.dataset.name} | ${auditLabel} audit | ${data.role_context.role} lens`, size: 11, color: "muted", gapAfter: 10 },
+    { text: `Generated: ${new Date(report.generated_at).toLocaleString()}`, size: 9, color: "muted", gapAfter: 18 },
+    { text: "Judge Summary", size: 15, bold: true, color: "dark", gapAfter: 8 },
+    { text: `Bias found: ${percent(data.baseline.demographic_parity_difference)}`, size: 11, color: "red" },
+    { text: `Mitigation applied: Fairlearn demographic parity post-processing`, size: 11 },
+    { text: `Bias reduced by: ${percent(data.comparison.bias_reduction)}`, size: 11, color: "green" },
+    { text: `Decision: ${ready ? "Ready for controlled review" : "Needs Review"}`, size: 11, bold: true, color: ready ? "green" : "red", gapAfter: 16 },
+    { text: "Key Evidence", size: 15, bold: true, color: "dark", gapAfter: 8 },
+    { text: `Baseline accuracy: ${percent(data.baseline.accuracy)}`, size: 10 },
+    { text: `Mitigated accuracy: ${percent(data.mitigated.accuracy)}`, size: 10 },
+    { text: `Baseline parity gap: ${percent(data.baseline.demographic_parity_difference)}`, size: 10 },
+    { text: `Mitigated parity gap: ${percent(data.mitigated.demographic_parity_difference)}`, size: 10 },
+    { text: `Disparate impact ratio: ${number(data.mitigated.demographic_parity_ratio, 2)}`, size: 10 },
+    { text: `Policy gates: ${data.policy.filter((check) => check.status === "Pass").length} of ${data.policy.length} passing`, size: 10, gapAfter: 16 },
+    { text: "Role-Specific Focus", size: 15, bold: true, color: "dark", gapAfter: 8 },
+    { text: data.role_context.summary, size: 10 },
+    { text: `Decision question: ${data.role_context.decision_question}`, size: 10 },
+    { text: `Recommended action: ${data.role_context.recommended_actions[0]}`, size: 10, gapAfter: 16 },
+  ];
+
+  const sectionLines = report.sections.flatMap((section) => [
+    { text: section.title, size: 14, bold: true, color: "dark" as const, gapAfter: 6 },
+    { text: section.body, size: 10, color: "dark" as const, gapAfter: 14 },
+  ]);
+
+  return createSimplePdf([...summaryLines, ...sectionLines]);
+}
+
+function createSimplePdf(lines: PdfTextLine[]) {
+  const pageWidth = 595;
+  const pageHeight = 842;
+  const margin = 54;
+  const contentWidth = pageWidth - margin * 2;
+  const bottomMargin = 54;
+  const pages: string[] = [];
+  let commands: string[] = [];
+  let y = pageHeight - margin;
+  let pageNumber = 1;
+
+  function beginPage() {
+    commands = [
+      "0.06 0.06 0.07 rg",
+      `0 ${pageHeight - 72} ${pageWidth} 72 re f`,
+      "0.00 1.00 0.62 rg",
+      `0 ${pageHeight - 76} ${pageWidth} 4 re f`,
+      "1 1 1 rg",
+      "/F2 13 Tf",
+      `1 0 0 1 ${margin} ${pageHeight - 42} Tm`,
+      `(FairLens) Tj`,
+      "0.65 0.75 0.67 rg",
+      "/F1 8 Tf",
+      `1 0 0 1 ${pageWidth - 138} ${pageHeight - 42} Tm`,
+      `(Responsible AI Audit) Tj`,
+    ];
+    y = pageHeight - 104;
+  }
+
+  function endPage() {
+    commands.push(
+      "0.45 0.49 0.46 rg",
+      "/F1 8 Tf",
+      `1 0 0 1 ${margin} 30 Tm`,
+      `(FairLens governance evidence | Page ${pageNumber}) Tj`
+    );
+    pages.push(commands.join("\n"));
+    pageNumber += 1;
+  }
+
+  function addPageIfNeeded(requiredHeight: number) {
+    if (y - requiredHeight >= bottomMargin) return;
+    endPage();
+    beginPage();
+  }
+
+  beginPage();
+  for (const item of lines) {
+    const size = item.size ?? 10;
+    const wrapped = wrapPdfText(item.text, Math.max(24, Math.floor(contentWidth / (size * 0.52))));
+    const lineHeight = size + 4;
+    const blockHeight = wrapped.length * lineHeight + (item.gapAfter ?? 4);
+    addPageIfNeeded(blockHeight);
+
+    commands.push(pdfColor(item.color ?? "dark"), `/${item.bold ? "F2" : "F1"} ${size} Tf`);
+    for (const line of wrapped) {
+      commands.push(`1 0 0 1 ${margin} ${y} Tm`, `(${escapePdfText(line)}) Tj`);
+      y -= lineHeight;
+    }
+    y -= item.gapAfter ?? 4;
+  }
+  endPage();
+
+  const objects: string[] = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    `<< /Type /Pages /Kids ${pages.map((_, index) => `${index + 3} 0 R`).join(" ")} /Count ${pages.length} >>`,
+  ];
+
+  const contentStart = 3 + pages.length;
+  pages.forEach((_, index) => {
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${contentStart + pages.length} 0 R /F2 ${contentStart + pages.length + 1} 0 R >> >> /Contents ${contentStart + index} 0 R >>`
+    );
+  });
+  pages.forEach((page) => {
+    objects.push(`<< /Length ${page.length} >>\nstream\n${page}\nendstream`);
+  });
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${offset.toString().padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return pdf;
+}
+
+function wrapPdfText(text: string, maxChars: number) {
+  const normalized = sanitizePdfText(text);
+  const words = normalized.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length <= maxChars) {
+      current = next;
+      return;
+    }
+    if (current) lines.push(current);
+    current = word;
+  });
+  if (current) lines.push(current);
+  return lines.length ? lines : [""];
+}
+
+function sanitizePdfText(text: string) {
+  return text
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, "-")
+    .replace(/[^\x20-\x7E]/g, " ");
+}
+
+function escapePdfText(text: string) {
+  return sanitizePdfText(text).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+function pdfColor(color: PdfTextLine["color"]) {
+  if (color === "green") return "0.00 0.78 0.42 rg";
+  if (color === "red") return "0.78 0.26 0.26 rg";
+  if (color === "muted") return "0.38 0.43 0.39 rg";
+  return "0.08 0.09 0.08 rg";
+}
+
 function CustomAuditLab() {
   const [csvText, setCsvText] = useState(
     "sex,prediction,actual,probability\nMale,1,1,0.81\nFemale,0,1,0.42\nMale,1,0,0.73\nFemale,0,0,0.21\nFemale,1,1,0.66\nMale,1,1,0.91\n"
