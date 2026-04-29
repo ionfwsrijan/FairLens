@@ -1237,6 +1237,17 @@ function AIReportCenter({
     URL.revokeObjectURL(url);
   }
 
+  function downloadPdfReport() {
+    if (!report) return;
+    const pdf = buildGovernancePdf(data, report);
+    const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `fairlens-${datasetKey}-${protectedAttribute}-${role.toLowerCase().replaceAll(" ", "-")}.pdf`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   useEffect(() => {
     const controller = new AbortController();
     setReport(null);
@@ -1265,6 +1276,9 @@ function AIReportCenter({
           </button>
           <button className="ghost-button" onClick={() => window.print()}>
             Print report
+          </button>
+          <button className="ghost-button" onClick={downloadPdfReport} disabled={!report}>
+            Export PDF
           </button>
           <button className="ghost-button" onClick={downloadReport} disabled={!report}>
             Export HTML
