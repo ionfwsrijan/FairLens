@@ -231,6 +231,17 @@ type AuditRun = {
   risk_level: string;
 };
 
+type TimelinePoint = {
+  label: string;
+  dataset: DatasetKey;
+  protectedAttribute: ProtectedAttribute;
+  baselineGap: number;
+  mitigatedGap: number;
+  biasReduction: number;
+  accuracy: number;
+  status: "Ready" | "Review";
+};
+
 type AuditRequestOptions = {
   datasetKey?: DatasetKey;
   protectedAttribute?: ProtectedAttribute;
@@ -1637,6 +1648,7 @@ function CustomAuditLab() {
 
 function MonitoringCenter({ data }: { data: AuditResponse }) {
   const [runs, setRuns] = useState<AuditRun[]>([]);
+  const timeline = buildAuditTimeline(data, runs);
 
   useEffect(() => {
     fetch("/api/runs")
@@ -1667,6 +1679,43 @@ function MonitoringCenter({ data }: { data: AuditResponse }) {
 
   return (
     <section className="tab-grid">
+      <article className="panel span-12">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Audit timeline</p>
+            <h2>Bias gap trend across the main hackathon scenarios</h2>
+          </div>
+          <span className="status-chip good">{timeline.length} audit lenses</span>
+        </div>
+        <div className="audit-timeline">
+          {timeline.map((point, index) => (
+            <div className="timeline-item" key={`${point.dataset}-${point.protectedAttribute}`}>
+              <div className="timeline-index">{String(index + 1).padStart(2, "0")}</div>
+              <div className="timeline-card">
+                <div className="timeline-title">
+                  <span>{point.label}</span>
+                  <strong>{point.status}</strong>
+                </div>
+                <div className="timeline-bars">
+                  <div>
+                    <span>Baseline {percent(point.baselineGap)}</span>
+                    <div className="track"><div style={{ width: `${Math.min(point.baselineGap * 260, 100)}%` }} /></div>
+                  </div>
+                  <div>
+                    <span>Mitigated {percent(point.mitigatedGap)}</span>
+                    <div className="track mitigated-track"><div style={{ width: `${Math.min(point.mitigatedGap * 260, 100)}%` }} /></div>
+                  </div>
+                </div>
+                <div className="timeline-meta">
+                  <span>{percent(point.biasReduction)} reduction</span>
+                  <span>{percent(point.accuracy)} accuracy</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
+
       <article className="panel span-12">
         <div className="panel-heading">
           <div>
@@ -1709,6 +1758,104 @@ function MonitoringCenter({ data }: { data: AuditResponse }) {
       </article>
     </section>
   );
+}
+
+function buildAuditTimeline(data: AuditResponse, runs: AuditRun[]): TimelinePoint[] {
+  const fallback: TimelinePoint[] = [
+    {
+      label: "Adult Income / Gender",
+      dataset: "adult",
+      protectedAttribute: "sex",
+      baselineGap: data.dataset.key === "adult" && data.dataset.protected_attribute === "sex"
+        ? data.baseline.demographic_parity_difference
+        : 0.297,
+      mitigatedGap: data.dataset.key === "adult" && data.dataset.protected_attribute === "sex"
+        ? data.mitigated.demographic_parity_difference
+        : 0.008,
+      biasReduction: data.dataset.key === "adult" && data.dataset.protected_attribute === "sex"
+        ? data.comparison.bias_reduction
+        : 0.974,
+      accuracy: data.dataset.key === "adult" && data.dataset.protected_attribute === "sex"
+        ? data.mitigated.accuracy
+        : 0.827,
+      status: "Ready",
+    },
+    {
+      label: "Adult Income / Race",
+      dataset: "adult",
+      protectedAttribute: "race",
+      baselineGap: data.dataset.key === "adult" && data.dataset.protected_attribute === "race"
+        ? data.baseline.demographic_parity_difference
+        : 0.238,
+      mitigatedGap: data.dataset.key === "adult" && data.dataset.protected_attribute === "race"
+        ? data.mitigated.demographic_parity_difference
+        : 0.019,
+      biasReduction: data.dataset.key === "adult" && data.dataset.protected_attribute === "race"
+        ? data.comparison.bias_reduction
+        : 0.92,
+      accuracy: data.dataset.key === "adult" && data.dataset.protected_attribute === "race"
+        ? data.mitigated.accuracy
+        : 0.821,
+      status: "Ready",
+    },
+    {
+      label: "German Credit / Gender",
+      dataset: "german_credit",
+      protectedAttribute: "sex",
+      baselineGap: data.dataset.key === "german_credit" && data.dataset.protected_attribute === "sex"
+        ? data.baseline.demographic_parity_difference
+        : 0.038,
+      mitigatedGap: data.dataset.key === "german_credit" && data.dataset.protected_attribute === "sex"
+        ? data.mitigated.demographic_parity_difference
+        : 0.018,
+      biasReduction: data.dataset.key === "german_credit" && data.dataset.protected_attribute === "sex"
+        ? data.comparison.bias_reduction
+        : 0.526,
+      accuracy: data.dataset.key === "german_credit" && data.dataset.protected_attribute === "sex"
+        ? data.mitigated.accuracy
+        : 0.72,
+      status: "Ready",
+    },
+    {
+      label: "German Credit / Age",
+      dataset: "german_credit",
+      protectedAttribute: "age_group",
+      baselineGap: data.dataset.key === "german_credit" && data.dataset.protected_attribute === "age_group"
+        ? data.baseline.demographic_parity_difference
+        : 0.285,
+      mitigatedGap: data.dataset.key === "german_credit" && data.dataset.protected_attribute === "age_group"
+        ? data.mitigated.demographic_parity_difference
+        : 0.026,
+      biasReduction: data.dataset.key === "german_credit" && data.dataset.protected_attribute === "age_group"
+        ? data.comparison.bias_reduction
+        : 0.909,
+      accuracy: data.dataset.key === "german_credit" && data.dataset.protected_attribute === "age_group"
+        ? data.mitigated.accuracy
+        : 0.71,
+      status: "Review",
+    },
+  ];
+
+  return fallback.map((point) => {
+    const run = [...runs].reverse().find((item) =>
+      normalizeDatasetKey(item.dataset) === point.dataset &&
+      item.protected_attribute === point.protectedAttribute
+    );
+    if (!run) return point;
+    return {
+      ...point,
+      baselineGap: run.bias_gap,
+      mitigatedGap: run.mitigated_bias_gap,
+      biasReduction: run.bias_gap ? Math.max(0, (run.bias_gap - run.mitigated_bias_gap) / run.bias_gap) : point.biasReduction,
+      accuracy: run.accuracy,
+      status: run.mitigated_bias_gap < 0.05 ? "Ready" : "Review",
+    };
+  });
+}
+
+function normalizeDatasetKey(dataset: string | undefined): DatasetKey | null {
+  if (dataset === "adult" || dataset === "german_credit") return dataset;
+  return null;
 }
 
 function FreeArchitecture() {
