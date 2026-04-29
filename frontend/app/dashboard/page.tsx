@@ -114,6 +114,15 @@ type FairnessThresholds = {
   minDisparateImpact: number;
 };
 
+type ThresholdPresetKey = "strict" | "balanced" | "demo" | "custom";
+
+type ThresholdPreset = {
+  key: ThresholdPresetKey;
+  label: string;
+  description: string;
+  thresholds: FairnessThresholds;
+};
+
 type DatasetOption = {
   key: DatasetKey;
   label: string;
@@ -296,6 +305,35 @@ const defaultThresholds: FairnessThresholds = {
   minDisparateImpact: 0.8,
 };
 
+const thresholdPresets: ThresholdPreset[] = [
+  {
+    key: "strict",
+    label: "Strict",
+    description: "Regulated launch posture",
+    thresholds: {
+      maxParityGap: 0.03,
+      minAccuracy: 0.82,
+      minDisparateImpact: 0.9
+    }
+  },
+  {
+    key: "balanced",
+    label: "Balanced",
+    description: "Default review posture",
+    thresholds: defaultThresholds
+  },
+  {
+    key: "demo",
+    label: "Demo-friendly",
+    description: "Forgiving judge walkthrough",
+    thresholds: {
+      maxParityGap: 0.08,
+      minAccuracy: 0.7,
+      minDisparateImpact: 0.75
+    }
+  }
+];
+
 const views: { key: ViewKey; label: string; kicker: string }[] = [
   { key: "command", label: "Command Center", kicker: "Executive view" },
   { key: "data", label: "Data Room", kicker: "Dataset evidence" },
@@ -376,6 +414,7 @@ export default function Home() {
   const [demoStep, setDemoStep] = useState(0);
   const [attributeChangeNotice, setAttributeChangeNotice] = useState<AttributeChangeNotice | null>(null);
   const [thresholds, setThresholds] = useState<FairnessThresholds>(defaultThresholds);
+  const [thresholdPreset, setThresholdPreset] = useState<ThresholdPresetKey>("balanced");
   const [warmingDemo, setWarmingDemo] = useState(false);
   const [warmupResult, setWarmupResult] = useState<WarmupResponse | null>(null);
   const [warmupError, setWarmupError] = useState<string | null>(null);
@@ -682,7 +721,18 @@ export default function Home() {
             <ContextStrip data={data} lastRun={lastRun} />
             <JudgeSummary data={data} policyChecks={livePolicyChecks} />
             <BlockedDeploymentWarning data={data} thresholds={thresholds} />
-            <ThresholdSettings thresholds={thresholds} onChange={setThresholds} />
+            <ThresholdSettings
+              activePreset={thresholdPreset}
+              thresholds={thresholds}
+              onChange={(nextThresholds) => {
+                setThresholdPreset("custom");
+                setThresholds(nextThresholds);
+              }}
+              onPresetChange={(preset) => {
+                setThresholdPreset(preset.key);
+                setThresholds(preset.thresholds);
+              }}
+            />
             {activeView === "command" && <CommandCenter data={data} policyChecks={livePolicyChecks} />}
             {activeView === "data" && <DataRoom data={data} />}
             {activeView === "audit" && <AuditWorkbench data={data} />}
@@ -850,11 +900,15 @@ function BlockedDeploymentWarning({
 }
 
 function ThresholdSettings({
+  activePreset,
   thresholds,
-  onChange
+  onChange,
+  onPresetChange
 }: {
+  activePreset: ThresholdPresetKey;
   thresholds: FairnessThresholds;
   onChange: (thresholds: FairnessThresholds) => void;
+  onPresetChange: (preset: ThresholdPreset) => void;
 }) {
   function updateThreshold(key: keyof FairnessThresholds, value: number) {
     onChange({ ...thresholds, [key]: value });
@@ -867,7 +921,20 @@ function ThresholdSettings({
           <p className="eyebrow">Fairness thresholds</p>
           <h2>Live policy settings</h2>
         </div>
-        <span className="status-chip">Updates gates instantly</span>
+        <span className="status-chip">{activePreset === "custom" ? "Custom policy" : `${activePreset} preset`}</span>
+      </div>
+      <div className="threshold-preset-grid">
+        {thresholdPresets.map((preset) => (
+          <button
+            key={preset.key}
+            className={activePreset === preset.key ? "active" : ""}
+            onClick={() => onPresetChange(preset)}
+            type="button"
+          >
+            <strong>{preset.label}</strong>
+            <span>{preset.description}</span>
+          </button>
+        ))}
       </div>
       <div className="threshold-grid">
         <label>
