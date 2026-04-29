@@ -1518,6 +1518,14 @@ p, span, div {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .judge-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .judge-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .category-grid,
   .decision-grid,
   .case-columns {
@@ -1572,9 +1580,18 @@ p, span, div {
   .action-stack,
   .history-grid,
   .drift-grid,
+  .judge-summary-grid,
   .role-metric-grid,
   .role-action-grid {
     grid-template-columns: 1fr;
+  }
+
+  .judge-summary {
+    padding: 20px;
+  }
+
+  .judge-summary-copy h3 {
+    font-size: 22px;
   }
 
   .segmented {
