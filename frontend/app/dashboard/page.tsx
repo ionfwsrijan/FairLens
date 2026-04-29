@@ -412,6 +412,8 @@ export default function Home() {
   const [mitigationVisible, setMitigationVisible] = useState(true);
   const [selectedCase, setSelectedCase] = useState(0);
   const [demoStep, setDemoStep] = useState(0);
+  const [presenterOpen, setPresenterOpen] = useState(false);
+  const [presenterStep, setPresenterStep] = useState(0);
   const [attributeChangeNotice, setAttributeChangeNotice] = useState<AttributeChangeNotice | null>(null);
   const [thresholds, setThresholds] = useState<FairnessThresholds>(defaultThresholds);
   const [thresholdPreset, setThresholdPreset] = useState<ThresholdPresetKey>("balanced");
@@ -628,6 +630,16 @@ export default function Home() {
           }}>
             Judge demo step {demoStep + 1}
           </button>
+          <button
+            className="ghost-button full-button"
+            onClick={() => {
+              setPresenterStep(0);
+              setPresenterOpen(true);
+            }}
+            disabled={!data || isStaleAudit}
+          >
+            Presenter mode
+          </button>
           <button className="ghost-button full-button" onClick={warmDemoCache} disabled={warmingDemo}>
             {warmingDemo ? "Warming demo" : "Warm demo"}
           </button>
@@ -764,6 +776,17 @@ export default function Home() {
         ) : null}
       </section>
     </main>
+    {presenterOpen && data && !isStaleAudit && (
+      <PresenterMode
+        activePreset={thresholdPreset}
+        data={data}
+        onClose={() => setPresenterOpen(false)}
+        onStepChange={setPresenterStep}
+        policyChecks={livePolicyChecks}
+        step={presenterStep}
+        thresholds={thresholds}
+      />
+    )}
     </>
   );
 }
@@ -976,6 +999,205 @@ function ThresholdSettings({
           />
           <small>Higher requires closer selection-rate parity.</small>
         </label>
+      </div>
+    </section>
+  );
+}
+
+function PresenterMode({
+  activePreset,
+  data,
+  onClose,
+  onStepChange,
+  policyChecks,
+  step,
+  thresholds
+}: {
+  activePreset: ThresholdPresetKey;
+  data: AuditResponse;
+  onClose: () => void;
+  onStepChange: (step: number) => void;
+  policyChecks: PolicyCheck[];
+  step: number;
+  thresholds: FairnessThresholds;
+}) {
+  const passed = policyChecks.filter((check) => check.status === "Pass").length;
+  const ready = policyChecks.length > 0 && passed === policyChecks.length;
+  const auditLabel = attributeLabel(data.dataset.protected_attribute);
+  const presetLabel =
+    activePreset === "custom"
+      ? "Custom"
+      : thresholdPresets.find((preset) => preset.key === activePreset)?.label ?? "Balanced";
+  const topFeatures = data.explainability.top_features.slice(0, 3);
+  const slides = [
+    "Story",
+    "Baseline",
+    "Evidence",
+    "Mitigation",
+    "Decision"
+  ];
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+      if (event.key === "ArrowRight") onStepChange(Math.min(step + 1, slides.length - 1));
+      if (event.key === "ArrowLeft") onStepChange(Math.max(step - 1, 0));
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose, onStepChange, step, slides.length]);
+
+  function nextStep() {
+    onStepChange(Math.min(step + 1, slides.length - 1));
+  }
+
+  function previousStep() {
+    onStepChange(Math.max(step - 1, 0));
+  }
+
+  return (
+    <section className="presenter-backdrop" role="dialog" aria-modal="true" aria-label="FairLens presenter mode">
+      <div className="presenter-shell">
+        <header className="presenter-topbar">
+          <div>
+            <p className="eyebrow">Presenter mode</p>
+            <strong>FairLens judge walkthrough</strong>
+          </div>
+          <div className="presenter-progress" aria-label="Presenter steps">
+            {slides.map((label, index) => (
+              <button
+                key={label}
+                className={step === index ? "active" : ""}
+                onClick={() => onStepChange(index)}
+                type="button"
+              >
+                {index + 1}
+              </button>
+            ))}
+          </div>
+          <button className="ghost-button compact-button" onClick={onClose} type="button">
+            Exit
+          </button>
+        </header>
+
+        {step === 0 && (
+          <article className="presenter-slide hero">
+            <p className="eyebrow">Unbiased AI decisions</p>
+            <h2>FairLens turns a hidden fairness problem into a defensible approval workflow.</h2>
+            <p>
+              This audit uses {compactNumber(data.dataset.rows)} real rows from {data.dataset.name}, checks the{" "}
+              {auditLabel} lens, explains proxy behavior, applies mitigation, and packages the result for review.
+            </p>
+            <div className="presenter-metrics">
+              <div><span>Dataset</span><strong>{data.dataset.name}</strong></div>
+              <div><span>Role lens</span><strong>{data.role_context.role}</strong></div>
+              <div><span>Policy posture</span><strong>{presetLabel}</strong></div>
+            </div>
+          </article>
+        )}
+
+        {step === 1 && (
+          <article className="presenter-slide">
+            <div>
+              <p className="eyebrow">Baseline risk</p>
+              <h2>The standard model looks useful, but it fails the fairness screen.</h2>
+              <p>
+                Baseline accuracy is {percent(data.baseline.accuracy)}, while the measured {auditLabel} parity gap is{" "}
+                {percent(data.baseline.demographic_parity_difference)}.
+              </p>
+            </div>
+            <div className="presenter-grid">
+              <div className="presenter-card danger"><span>Baseline gap</span><strong>{percent(data.baseline.demographic_parity_difference)}</strong></div>
+              <div className="presenter-card"><span>Baseline accuracy</span><strong>{percent(data.baseline.accuracy)}</strong></div>
+              <div className="presenter-card"><span>Groups audited</span><strong>{data.dataset.protected_groups.length}</strong></div>
+            </div>
+            <GroupBars groups={data.baseline.by_group} compact />
+          </article>
+        )}
+
+        {step === 2 && (
+          <article className="presenter-slide">
+            <div>
+              <p className="eyebrow">Why this happened</p>
+              <h2>FairLens surfaces proxy-risk evidence instead of only reporting a score.</h2>
+              <p>
+                The audit ranks model drivers so reviewers can inspect features that may encode historical patterns.
+              </p>
+            </div>
+            <div className="presenter-grid">
+              {topFeatures.map((feature) => (
+                <div className="presenter-card" key={feature.feature}>
+                  <span>{feature.proxy_risk} proxy risk</span>
+                  <strong>{feature.feature}</strong>
+                  <em>{percent(feature.relative_importance)} relative influence</em>
+                </div>
+              ))}
+            </div>
+          </article>
+        )}
+
+        {step === 3 && (
+          <article className="presenter-slide">
+            <div>
+              <p className="eyebrow">FairLens fix</p>
+              <h2>Mitigation reduces measured disparity while preserving practical accuracy.</h2>
+              <p>
+                The mitigated model uses Fairlearn threshold optimization and drops the parity gap to{" "}
+                {percent(data.mitigated.demographic_parity_difference)}.
+              </p>
+            </div>
+            <div className="presenter-grid">
+              <div className="presenter-card good"><span>Bias reduction</span><strong>{percent(data.comparison.bias_reduction)}</strong></div>
+              <div className="presenter-card"><span>Mitigated accuracy</span><strong>{percent(data.mitigated.accuracy)}</strong></div>
+              <div className="presenter-card"><span>Accuracy trade-off</span><strong>{signedPercent(data.comparison.accuracy_delta)}</strong></div>
+            </div>
+          </article>
+        )}
+
+        {step === 4 && (
+          <article className="presenter-slide">
+            <div>
+              <p className="eyebrow">Governance decision</p>
+              <h2>{ready ? "The mitigated model is ready for controlled review." : "The model still needs reviewer sign-off."}</h2>
+              <p>
+                Policy gates are evaluated live against the {presetLabel} thresholds: max parity gap{" "}
+                {percent(thresholds.maxParityGap)}, minimum accuracy {percent(thresholds.minAccuracy)}, and disparate
+                impact threshold {number(thresholds.minDisparateImpact, 2)}.
+              </p>
+            </div>
+            <div className="presenter-grid">
+              <div className={ready ? "presenter-card good" : "presenter-card danger"}>
+                <span>Policy gates</span>
+                <strong>{passed} of {policyChecks.length}</strong>
+              </div>
+              <div className="presenter-card">
+                <span>Decision</span>
+                <strong>{ready ? "Ready" : "Review"}</strong>
+              </div>
+              <div className="presenter-card">
+                <span>Report posture</span>
+                <strong>{data.role_context.report_emphasis}</strong>
+              </div>
+            </div>
+          </article>
+        )}
+
+        <footer className="presenter-controls">
+          <button className="ghost-button" onClick={previousStep} disabled={step === 0} type="button">
+            Previous
+          </button>
+          <span>{slides[step]} {step + 1} of {slides.length}</span>
+          <button className="primary-button" onClick={nextStep} disabled={step === slides.length - 1} type="button">
+            Next
+          </button>
+        </footer>
       </div>
     </section>
   );
