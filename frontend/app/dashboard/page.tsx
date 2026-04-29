@@ -114,6 +114,17 @@ type FairnessThresholds = {
   minDisparateImpact: number;
 };
 
+type WarmupResponse = {
+  status: "ready" | "partial";
+  audit_lenses: number;
+  roles: number;
+  runs: number;
+  cache_hits: number;
+  computed: number;
+  elapsed_ms: number;
+  errors: { dataset: string; protected_attribute: string; role: string; error: string }[];
+};
+
 type AuditResponse = {
   generated_at: string;
   dataset: {
@@ -340,6 +351,9 @@ export default function Home() {
   const [demoStep, setDemoStep] = useState(0);
   const [attributeChangeNotice, setAttributeChangeNotice] = useState<AttributeChangeNotice | null>(null);
   const [thresholds, setThresholds] = useState<FairnessThresholds>(defaultThresholds);
+  const [warmingDemo, setWarmingDemo] = useState(false);
+  const [warmupResult, setWarmupResult] = useState<WarmupResponse | null>(null);
+  const [warmupError, setWarmupError] = useState<string | null>(null);
   const activeDataset = datasetOptions.find((item) => item.key === datasetKey) ?? datasetOptions[0];
   const requestProtectedAttribute = activeDataset.protectedAttributes.includes(protectedAttribute)
     ? protectedAttribute
@@ -425,6 +439,31 @@ export default function Home() {
     setProtectedAttribute(nextAttribute);
   }
 
+  async function warmDemoCache() {
+    setWarmingDemo(true);
+    setWarmupError(null);
+    try {
+      const response = await fetch(`${API_URL}/api/warmup`, {
+        method: "POST",
+        cache: "no-store"
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        const detail = payload?.detail;
+        const message =
+          typeof detail === "string"
+            ? detail
+            : detail?.errors?.[0]?.error ?? `Warm-up failed with status ${response.status}.`;
+        throw new Error(message);
+      }
+      setWarmupResult(payload as WarmupResponse);
+    } catch (requestError) {
+      setWarmupError(requestError instanceof Error ? requestError.message : "Unable to warm demo cache.");
+    } finally {
+      setWarmingDemo(false);
+    }
+  }
+
   const lastRun = useMemo(() => {
     if (!data?.generated_at) return "";
     return new Intl.DateTimeFormat("en", {
@@ -490,6 +529,21 @@ export default function Home() {
           }}>
             Judge demo step {demoStep + 1}
           </button>
+          <button className="ghost-button full-button" onClick={warmDemoCache} disabled={warmingDemo}>
+            {warmingDemo ? "Warming demo" : "Warm demo"}
+          </button>
+          {(warmupResult || warmupError) && (
+            <div className={`warmup-card ${warmupError ? "error" : "ready"}`}>
+              <span>{warmupError ? "Warm-up failed" : "Demo cache ready"}</span>
+              <strong>{warmupError ?? `${warmupResult?.runs ?? 0} audit views primed`}</strong>
+              {!warmupError && warmupResult && (
+                <small>
+                  {warmupResult.audit_lenses} lenses x {warmupResult.roles} roles in{" "}
+                  {(warmupResult.elapsed_ms / 1000).toFixed(1)}s
+                </small>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="sidebar-footer">
