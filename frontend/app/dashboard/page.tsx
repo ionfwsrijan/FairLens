@@ -302,6 +302,15 @@ type RunComparisonRow = {
   tone: "good" | "watch" | "neutral";
 };
 
+type ComplianceAlert = {
+  id: string;
+  severity: "critical" | "warning" | "good" | "info";
+  title: string;
+  body: string;
+  metric: string;
+  action: string;
+};
+
 type AuditRequestOptions = {
   datasetKey?: DatasetKey;
   protectedAttribute?: ProtectedAttribute;
