@@ -266,10 +266,21 @@ type AuditRun = {
   created_at: string;
   dataset?: string;
   protected_attribute: string;
+  role?: RoleKey | string;
   accuracy: number;
   bias_gap: number;
   mitigated_bias_gap: number;
   risk_level: string;
+  threshold_preset?: ThresholdPresetKey | string;
+  thresholds?: {
+    max_parity_gap?: number;
+    min_accuracy?: number;
+    min_disparate_impact?: number;
+  };
+  policy_status?: {
+    decision?: "Ready" | "Review" | string;
+    checks?: { name: string; value?: number; target?: string; status: "Pass" | "Review" | string }[];
+  };
 };
 
 type TimelinePoint = {
@@ -491,10 +502,19 @@ export default function Home() {
     setError(null);
     setSelectedCase(0);
     try {
-      const response = await fetch(
-        `${API_URL}/api/audit?dataset=${auditDatasetKey}&protected_attribute=${auditProtectedAttribute}&role=${encodeURIComponent(auditRole)}&force_refresh=${forceRefresh}`,
-        { signal: options.signal }
-      );
+      const params = new URLSearchParams({
+        dataset: auditDatasetKey,
+        protected_attribute: auditProtectedAttribute,
+        role: auditRole,
+        force_refresh: String(forceRefresh)
+      });
+      if (forceRefresh) {
+        params.set("threshold_preset", thresholdPreset);
+        params.set("max_parity_gap", String(thresholds.maxParityGap));
+        params.set("min_accuracy", String(thresholds.minAccuracy));
+        params.set("min_disparate_impact", String(thresholds.minDisparateImpact));
+      }
+      const response = await fetch(`${API_URL}/api/audit?${params.toString()}`, { signal: options.signal });
       if (options.signal?.aborted) return;
       if (!response.ok) {
         const details = await response.json().catch(() => null);
@@ -769,7 +789,9 @@ export default function Home() {
               />
             )}
             {activeView === "custom" && <CustomAuditLab />}
-            {activeView === "monitoring" && <MonitoringCenter data={data} />}
+            {activeView === "monitoring" && (
+              <MonitoringCenter data={data} thresholds={thresholds} thresholdPreset={thresholdPreset} />
+            )}
             {activeView === "architecture" && <FreeArchitecture />}
             {activeView === "pitch" && <PitchRoom />}
           </>
@@ -2199,7 +2221,15 @@ function CustomAuditLab() {
   );
 }
 
-function MonitoringCenter({ data }: { data: AuditResponse }) {
+function MonitoringCenter({
+  data,
+  thresholds,
+  thresholdPreset
+}: {
+  data: AuditResponse;
+  thresholds: FairnessThresholds;
+  thresholdPreset: ThresholdPresetKey;
+}) {
   const [runs, setRuns] = useState<AuditRun[]>([]);
   const timeline = buildAuditTimeline(data, runs);
 
@@ -2216,11 +2246,20 @@ function MonitoringCenter({ data }: { data: AuditResponse }) {
         {
           id: "current-demo-run",
           created_at: data.generated_at,
+          dataset: data.dataset.key,
           protected_attribute: data.dataset.protected_attribute,
+          role: data.role_context.role,
           accuracy: data.baseline.accuracy,
           bias_gap: data.baseline.demographic_parity_difference,
           mitigated_bias_gap: data.mitigated.demographic_parity_difference,
-          risk_level: data.risk.level
+          risk_level: data.risk.level,
+          threshold_preset: thresholdPreset,
+          thresholds: {
+            max_parity_gap: thresholds.maxParityGap,
+            min_accuracy: thresholds.minAccuracy,
+            min_disparate_impact: thresholds.minDisparateImpact
+          },
+          policy_status: buildSavedRunPolicyStatus(data, thresholds)
         }
       ];
   const simulation = [
@@ -2281,7 +2320,15 @@ function MonitoringCenter({ data }: { data: AuditResponse }) {
           {visibleRuns.slice(-8).map((run) => (
             <div className="history-card" key={run.id}>
               <span>{new Date(run.created_at).toLocaleString()}</span>
-              <strong>{run.protected_attribute} audit</strong>
+              <strong>{savedDatasetLabel(run.dataset)} / {savedAttributeLabel(run.protected_attribute)}</strong>
+              <div className="mini-row"><span>Role lens</span><em>{run.role ?? "Legacy"}</em></div>
+              <div className="mini-row"><span>Policy preset</span><em>{savedPresetLabel(run.threshold_preset)}</em></div>
+              {run.thresholds?.max_parity_gap !== undefined && (
+                <div className="mini-row"><span>Max parity gap</span><em>{percent(run.thresholds.max_parity_gap)}</em></div>
+              )}
+              {run.policy_status?.decision && (
+                <div className="mini-row"><span>Saved decision</span><em>{run.policy_status.decision}</em></div>
+              )}
               <div className="mini-row"><span>Baseline gap</span><em>{percent(run.bias_gap)}</em></div>
               <div className="mini-row"><span>Mitigated gap</span><em>{percent(run.mitigated_bias_gap)}</em></div>
               <div className="mini-row"><span>Accuracy</span><em>{percent(run.accuracy)}</em></div>
@@ -2311,6 +2358,55 @@ function MonitoringCenter({ data }: { data: AuditResponse }) {
       </article>
     </section>
   );
+}
+
+function buildSavedRunPolicyStatus(data: AuditResponse, thresholds: FairnessThresholds) {
+  const checks = [
+    {
+      name: "Demographic parity gap",
+      value: data.mitigated.demographic_parity_difference,
+      target: `<= ${number(thresholds.maxParityGap, 2)}`,
+      status: data.mitigated.demographic_parity_difference <= thresholds.maxParityGap ? "Pass" : "Review"
+    },
+    {
+      name: "Accuracy preservation",
+      value: data.mitigated.accuracy,
+      target: `>= ${number(thresholds.minAccuracy, 2)}`,
+      status: data.mitigated.accuracy >= thresholds.minAccuracy ? "Pass" : "Review"
+    },
+    {
+      name: "Disparate impact ratio",
+      value: data.mitigated.demographic_parity_ratio,
+      target: `>= ${number(thresholds.minDisparateImpact, 2)}`,
+      status: data.mitigated.demographic_parity_ratio >= thresholds.minDisparateImpact ? "Pass" : "Review"
+    }
+  ];
+
+  return {
+    decision: checks.every((check) => check.status === "Pass") ? "Ready" : "Review",
+    checks
+  };
+}
+
+function savedAttributeLabel(attribute: string) {
+  if (attribute === "sex" || attribute === "race" || attribute === "age_group") {
+    return attributeLabel(attribute);
+  }
+  return attribute || "Protected group";
+}
+
+function savedDatasetLabel(dataset: string | undefined) {
+  if (dataset === "adult") return "Adult Income";
+  if (dataset === "german_credit") return "German Credit";
+  return "Dataset";
+}
+
+function savedPresetLabel(preset: string | undefined) {
+  if (preset === "strict") return "Strict";
+  if (preset === "balanced") return "Balanced";
+  if (preset === "demo") return "Demo-friendly";
+  if (preset === "custom") return "Custom";
+  return "Legacy run";
 }
 
 function buildAuditTimeline(data: AuditResponse, runs: AuditRun[]): TimelinePoint[] {
