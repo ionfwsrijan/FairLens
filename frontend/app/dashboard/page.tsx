@@ -2301,6 +2301,7 @@ function MonitoringCenter({
   const comparisonRows = leftRun && rightRun ? buildRunComparisonRows(leftRun, rightRun) : [];
   const comparisonGapDelta = leftRun && rightRun ? rightRun.mitigated_bias_gap - leftRun.mitigated_bias_gap : null;
   const comparisonAccuracyDelta = leftRun && rightRun ? rightRun.accuracy - leftRun.accuracy : null;
+  const complianceAlerts = buildComplianceAlerts(visibleRuns);
   const simulation = [
     { month: "Jan", baseline: data.baseline.demographic_parity_difference * 0.82, mitigated: data.mitigated.demographic_parity_difference * 1.1 },
     { month: "Feb", baseline: data.baseline.demographic_parity_difference * 0.94, mitigated: data.mitigated.demographic_parity_difference * 1.3 },
@@ -2342,6 +2343,29 @@ function MonitoringCenter({
                   <span>{percent(point.accuracy)} accuracy</span>
                 </div>
               </div>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <article className="panel span-12">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Compliance alerts</p>
+            <h2>Automatic deployment risk signals from saved audits</h2>
+          </div>
+          <span className={`status-chip ${complianceAlerts.some((alert) => alert.severity === "critical") ? "danger" : "good"}`}>
+            {complianceAlerts.filter((alert) => alert.severity !== "good").length} active alerts
+          </span>
+        </div>
+        <div className="compliance-alert-grid">
+          {complianceAlerts.map((alert) => (
+            <div className={`compliance-alert ${alert.severity}`} key={alert.id}>
+              <div className="alert-severity">{alert.severity}</div>
+              <h3>{alert.title}</h3>
+              <p>{alert.body}</p>
+              <div className="mini-row"><span>Signal</span><em>{alert.metric}</em></div>
+              <div className="mini-row"><span>Action</span><em>{alert.action}</em></div>
             </div>
           ))}
         </div>
@@ -2463,6 +2487,153 @@ function MonitoringCenter({
       </article>
     </section>
   );
+}
+
+function buildComplianceAlerts(runs: AuditRun[]): ComplianceAlert[] {
+  const sortedRuns = [...runs].sort(
+    (left, right) => new Date(left.created_at).getTime() - new Date(right.created_at).getTime()
+  );
+  const latest = sortedRuns[sortedRuns.length - 1];
+  if (!latest) {
+    return [
+      {
+        id: "no-history",
+        severity: "info",
+        title: "No saved audit history yet",
+        body: "Run an audit to begin monitoring fairness regressions and policy threshold failures.",
+        metric: "Waiting for first run",
+        action: "Use Re-run audit"
+      }
+    ];
+  }
+
+  const previousLensRun = [...sortedRuns]
+    .slice(0, -1)
+    .reverse()
+    .find((run) =>
+      normalizeDatasetKey(run.dataset) === normalizeDatasetKey(latest.dataset) &&
+      run.protected_attribute === latest.protected_attribute
+    );
+  const alerts: ComplianceAlert[] = [];
+  const latestDecision = savedDecisionLabel(latest);
+  const previousDecision = previousLensRun ? savedDecisionLabel(previousLensRun) : null;
+  const maxParityGap = latest.thresholds?.max_parity_gap ?? 0.05;
+
+  if (latestDecision === "Review") {
+    alerts.push({
+      id: "latest-review",
+      severity: "critical",
+      title: "Latest run is blocked for review",
+      body: `${savedDatasetLabel(latest.dataset)} ${savedAttributeLabel(latest.protected_attribute)} is not ready under the saved policy settings.`,
+      metric: `Decision ${latestDecision}`,
+      action: "Open Mitigation Lab"
+    });
+  }
+
+  if (latest.mitigated_bias_gap > maxParityGap) {
+    alerts.push({
+      id: "parity-threshold",
+      severity: "critical",
+      title: "Mitigated parity gap exceeds threshold",
+      body: "The saved model still violates the active fairness gate after mitigation.",
+      metric: `${percent(latest.mitigated_bias_gap)} vs ${percent(maxParityGap)} limit`,
+      action: "Tighten features or mitigation"
+    });
+  }
+
+  if (latest.thresholds?.min_accuracy !== undefined && latest.accuracy < latest.thresholds.min_accuracy) {
+    alerts.push({
+      id: "accuracy-threshold",
+      severity: "warning",
+      title: "Accuracy dropped below policy minimum",
+      body: "Fairness mitigation may need tuning because the saved accuracy floor is not met.",
+      metric: `${percent(latest.accuracy)} vs ${percent(latest.thresholds.min_accuracy)} minimum`,
+      action: "Review threshold tradeoff"
+    });
+  }
+
+  const reviewedChecks = latest.policy_status?.checks?.filter((check) => check.status === "Review") ?? [];
+  reviewedChecks.slice(0, 2).forEach((check, index) => {
+    alerts.push({
+      id: `policy-check-${index}`,
+      severity: "warning",
+      title: `${check.name} needs review`,
+      body: "A saved policy gate did not pass for the most recent audit run.",
+      metric: `${check.value === undefined ? "n/a" : number(check.value, 2)} target ${check.target ?? "n/a"}`,
+      action: "Send to compliance review"
+    });
+  });
+
+  if (previousLensRun) {
+    const biasDelta = latest.mitigated_bias_gap - previousLensRun.mitigated_bias_gap;
+    const accuracyDelta = latest.accuracy - previousLensRun.accuracy;
+
+    if (biasDelta > 0.005) {
+      alerts.push({
+        id: "bias-regression",
+        severity: "warning",
+        title: "Bias increased since previous matching audit",
+        body: "The same dataset and protected group now has a larger mitigated parity gap.",
+        metric: `${signedPercent(biasDelta)} gap change`,
+        action: "Compare Runs"
+      });
+    }
+
+    if (accuracyDelta < -0.02) {
+      alerts.push({
+        id: "accuracy-regression",
+        severity: "warning",
+        title: "Accuracy regressed since previous matching audit",
+        body: "The latest saved audit lost more than two percentage points of accuracy.",
+        metric: `${signedPercent(accuracyDelta)} accuracy change`,
+        action: "Inspect model version"
+      });
+    }
+
+    if (previousDecision === "Ready" && latestDecision === "Review") {
+      alerts.push({
+        id: "decision-regression",
+        severity: "critical",
+        title: "Decision changed from Ready to Review",
+        body: "The latest matching audit no longer satisfies the approval posture judges expect to see controlled.",
+        metric: `${previousDecision} to ${latestDecision}`,
+        action: "Block deployment"
+      });
+    }
+
+    if (previousDecision === "Review" && latestDecision === "Ready") {
+      alerts.push({
+        id: "decision-recovered",
+        severity: "good",
+        title: "Decision recovered to Ready",
+        body: "The latest matching audit now passes the saved policy decision after prior review status.",
+        metric: `${previousDecision} to ${latestDecision}`,
+        action: "Prepare report"
+      });
+    }
+  }
+
+  if (!alerts.length) {
+    alerts.push({
+      id: "all-clear",
+      severity: "good",
+      title: "No compliance alerts detected",
+      body: "The latest saved run is within policy thresholds and no matching-run regression was detected.",
+      metric: `${savedDatasetLabel(latest.dataset)} ${savedAttributeLabel(latest.protected_attribute)}`,
+      action: "Ready for scorecard"
+    });
+  }
+
+  return dedupeComplianceAlerts(alerts).slice(0, 4);
+}
+
+function dedupeComplianceAlerts(alerts: ComplianceAlert[]) {
+  const seen = new Set<string>();
+  return alerts.filter((alert) => {
+    if (seen.has(alert.id)) return false;
+    seen.add(alert.id);
+    return true;
+  });
 }
 
 function CompareRunCard({ label, run }: { label: string; run: AuditRun }) {
