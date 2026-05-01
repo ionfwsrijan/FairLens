@@ -4,12 +4,14 @@ import math
 import sys
 import unittest
 from pathlib import Path
+from uuid import uuid4
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+from app import storage
 from app.audit import CACHE_SCHEMA_VERSION, run_audit
 from app.main import WARMUP_COMBINATIONS, WARMUP_ROLES, metadata as backend_metadata, warmup
 
@@ -138,6 +140,40 @@ class AuditMatrixTests(unittest.TestCase):
         )
         self.assertEqual(dataset_map["adult"]["label"], "Adult Income")
         self.assertEqual(dataset_map["german_credit"]["label"], "German Credit")
+
+    def test_saved_audit_runs_include_threshold_context(self) -> None:
+        payload = run_audit(dataset_key="adult", protected_attribute="sex", role="Executive")
+        original_runs_path = storage.RUNS_PATH
+        test_runs_path = BACKEND_ROOT / ".test-output" / f"fairlens-audit-runs-{uuid4().hex}.json"
+        test_runs_path.parent.mkdir(parents=True, exist_ok=True)
+
+        storage.RUNS_PATH = test_runs_path
+        try:
+            storage.append_audit_run(
+                "sex",
+                payload,
+                "adult",
+                role="Executive",
+                threshold_preset="strict",
+                thresholds={
+                    "max_parity_gap": 0.03,
+                    "min_accuracy": 0.8,
+                    "min_disparate_impact": 0.9,
+                },
+            )
+            runs = storage.list_audit_runs()
+        finally:
+            storage.RUNS_PATH = original_runs_path
+            test_runs_path.unlink(missing_ok=True)
+
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(runs[0]["dataset"], "adult")
+        self.assertEqual(runs[0]["protected_attribute"], "sex")
+        self.assertEqual(runs[0]["role"], "Executive")
+        self.assertEqual(runs[0]["threshold_preset"], "strict")
+        self.assertEqual(runs[0]["thresholds"]["max_parity_gap"], 0.03)
+        self.assertIn(runs[0]["policy_status"]["decision"], {"Ready", "Review"})
+        self.assertEqual(len(runs[0]["policy_status"]["checks"]), 3)
 
     def assert_metric_contract(self, metrics: dict) -> None:
         self.assertTrue(METRIC_KEYS.issubset(metrics.keys()))
