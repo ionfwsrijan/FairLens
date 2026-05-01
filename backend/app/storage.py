@@ -15,20 +15,33 @@ REVIEWS_PATH = CACHE_DIR / "reviews.json"
 RUNS_PATH = CACHE_DIR / "audit_runs.json"
 
 
-def append_audit_run(protected_attribute: str, audit: dict[str, Any], dataset: str = "adult") -> None:
+def append_audit_run(
+    protected_attribute: str,
+    audit: dict[str, Any],
+    dataset: str = "adult",
+    role: str = "Executive",
+    threshold_preset: str | None = None,
+    thresholds: dict[str, float | None] | None = None,
+) -> None:
     runs = read_json_list(RUNS_PATH)
-    runs.append(
-        {
-            "id": f"run-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{dataset}-{protected_attribute}",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "dataset": dataset,
-            "protected_attribute": protected_attribute,
-            "accuracy": audit["baseline"]["accuracy"],
-            "bias_gap": audit["baseline"]["demographic_parity_difference"],
-            "mitigated_bias_gap": audit["mitigated"]["demographic_parity_difference"],
-            "risk_level": audit["risk"]["level"],
-        }
-    )
+    sanitized_thresholds = sanitize_thresholds(thresholds)
+    run = {
+        "id": f"run-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{dataset}-{protected_attribute}",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "dataset": dataset,
+        "protected_attribute": protected_attribute,
+        "role": role,
+        "accuracy": audit["baseline"]["accuracy"],
+        "bias_gap": audit["baseline"]["demographic_parity_difference"],
+        "mitigated_bias_gap": audit["mitigated"]["demographic_parity_difference"],
+        "risk_level": audit["risk"]["level"],
+    }
+    if threshold_preset:
+        run["threshold_preset"] = threshold_preset
+    if sanitized_thresholds:
+        run["thresholds"] = sanitized_thresholds
+        run["policy_status"] = build_policy_status(audit, sanitized_thresholds)
+    runs.append(run)
     write_json_list(RUNS_PATH, runs[-50:])
     firebase_put(f"audit_runs/{safe_key(runs[-1]['id'])}", runs[-1])
 
@@ -38,6 +51,62 @@ def list_audit_runs() -> list[dict[str, Any]]:
     if local:
         return local
     return firebase_get_collection("audit_runs")
+
+
+def sanitize_thresholds(thresholds: dict[str, float | None] | None) -> dict[str, float]:
+    if not thresholds:
+        return {}
+    allowed_keys = {"max_parity_gap", "min_accuracy", "min_disparate_impact"}
+    sanitized: dict[str, float] = {}
+    for key in allowed_keys:
+        value = thresholds.get(key)
+        if value is not None:
+            sanitized[key] = float(value)
+    return sanitized
+
+
+def build_policy_status(audit: dict[str, Any], thresholds: dict[str, float]) -> dict[str, Any]:
+    mitigated = audit["mitigated"]
+    checks: list[dict[str, Any]] = []
+
+    if "max_parity_gap" in thresholds:
+        value = mitigated["demographic_parity_difference"]
+        target = thresholds["max_parity_gap"]
+        checks.append(
+            {
+                "name": "Demographic parity gap",
+                "value": value,
+                "target": f"<= {target:.2f}",
+                "status": "Pass" if value <= target else "Review",
+            }
+        )
+    if "min_accuracy" in thresholds:
+        value = mitigated["accuracy"]
+        target = thresholds["min_accuracy"]
+        checks.append(
+            {
+                "name": "Accuracy preservation",
+                "value": value,
+                "target": f">= {target:.2f}",
+                "status": "Pass" if value >= target else "Review",
+            }
+        )
+    if "min_disparate_impact" in thresholds:
+        value = mitigated["demographic_parity_ratio"]
+        target = thresholds["min_disparate_impact"]
+        checks.append(
+            {
+                "name": "Disparate impact ratio",
+                "value": value,
+                "target": f">= {target:.2f}",
+                "status": "Pass" if value >= target else "Review",
+            }
+        )
+
+    return {
+        "decision": "Ready" if checks and all(check["status"] == "Pass" for check in checks) else "Review",
+        "checks": checks,
+    }
 
 
 def upsert_review(review: dict[str, Any]) -> dict[str, Any]:

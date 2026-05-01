@@ -158,6 +158,10 @@ def audit(
         "Executive", description="Persona-specific backend lens for recommendations and reporting."
     ),
     force_refresh: bool = Query(False, description="Recompute instead of using the cache."),
+    threshold_preset: str | None = Query(None, description="Policy threshold preset used by the dashboard."),
+    max_parity_gap: float | None = Query(None, ge=0, le=1, description="Maximum acceptable mitigated parity gap."),
+    min_accuracy: float | None = Query(None, ge=0, le=1, description="Minimum acceptable mitigated accuracy."),
+    min_disparate_impact: float | None = Query(None, ge=0, le=1, description="Minimum acceptable disparate impact ratio."),
 ) -> dict:
     try:
         result = run_audit(
@@ -167,7 +171,18 @@ def audit(
             role=role,
         )
         if force_refresh:
-            append_audit_run(protected_attribute, result, dataset)
+            append_audit_run(
+                protected_attribute,
+                result,
+                dataset,
+                role=role,
+                threshold_preset=threshold_preset,
+                thresholds={
+                    "max_parity_gap": max_parity_gap,
+                    "min_accuracy": min_accuracy,
+                    "min_disparate_impact": min_disparate_impact,
+                },
+            )
         return result
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
