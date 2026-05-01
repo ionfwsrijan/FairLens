@@ -2497,7 +2497,13 @@ function buildAuditTimeline(data: AuditResponse, runs: AuditRun[]): TimelinePoin
       mitigatedGap: run.mitigated_bias_gap,
       biasReduction: run.bias_gap ? Math.max(0, (run.bias_gap - run.mitigated_bias_gap) / run.bias_gap) : point.biasReduction,
       accuracy: run.accuracy,
-      status: run.mitigated_bias_gap < 0.05 ? "Ready" : "Review",
+      status: run.policy_status?.decision === "Ready"
+        ? "Ready"
+        : run.policy_status?.decision === "Review"
+          ? "Review"
+          : run.mitigated_bias_gap < 0.05
+            ? "Ready"
+            : "Review",
     };
   });
 }

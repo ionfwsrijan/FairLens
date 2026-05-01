@@ -1,0 +1,42 @@
+[
+  {
+    "id": "run-20260501180508-adult-sex",
+    "created_at": "2026-05-01T18:05:08.216530+00:00",
+    "dataset": "adult",
+    "protected_attribute": "sex",
+    "role": "Executive",
+    "accuracy": 0.806232388529753,
+    "bias_gap": 0.29669474455227984,
+    "mitigated_bias_gap": 0.00765198681560153,
+    "risk_level": "High",
+    "threshold_preset": "strict",
+    "thresholds": {
+      "max_parity_gap": 0.03,
+      "min_accuracy": 0.8,
+      "min_disparate_impact": 0.9
+    },
+    "policy_status": {
+      "decision": "Ready",
+      "checks": [
+        {
+          "name": "Demographic parity gap",
+          "value": 0.00765198681560153,
+          "target": "<= 0.03",
+          "status": "Pass"
+        },
+        {
+          "name": "Accuracy preservation",
+          "value": 0.8272832753190784,
+          "target": ">= 0.80",
+          "status": "Pass"
+        },
+        {
+          "name": "Disparate impact ratio",
+          "value": 0.9539542251096165,
+          "target": ">= 0.90",
+          "status": "Pass"
+        }
+      ]
+    }
+  }
+]
