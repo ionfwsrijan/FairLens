@@ -294,6 +294,14 @@ type TimelinePoint = {
   status: "Ready" | "Review";
 };
 
+type RunComparisonRow = {
+  label: string;
+  left: string;
+  right: string;
+  delta: string;
+  tone: "good" | "watch" | "neutral";
+};
+
 type AuditRequestOptions = {
   datasetKey?: DatasetKey;
   protectedAttribute?: ProtectedAttribute;
@@ -2236,6 +2244,8 @@ function MonitoringCenter({
   thresholdPreset: ThresholdPresetKey;
 }) {
   const [runs, setRuns] = useState<AuditRun[]>([]);
+  const [compareLeftKey, setCompareLeftKey] = useState("");
+  const [compareRightKey, setCompareRightKey] = useState("");
   const timeline = buildAuditTimeline(data, runs);
 
   useEffect(() => {
@@ -2267,6 +2277,21 @@ function MonitoringCenter({
           policy_status: buildSavedRunPolicyStatus(data, thresholds)
         }
       ];
+  const comparisonOptions = visibleRuns.slice(-8).reverse().map((run, index) => ({
+    key: `${run.id}-${index}`,
+    run
+  }));
+  const leftOption = comparisonOptions.find((option) => option.key === compareLeftKey) ?? comparisonOptions[0] ?? null;
+  const rightOption =
+    comparisonOptions.find((option) => option.key === compareRightKey) ??
+    comparisonOptions[1] ??
+    comparisonOptions[0] ??
+    null;
+  const leftRun = leftOption?.run ?? null;
+  const rightRun = rightOption?.run ?? null;
+  const comparisonRows = leftRun && rightRun ? buildRunComparisonRows(leftRun, rightRun) : [];
+  const comparisonGapDelta = leftRun && rightRun ? rightRun.mitigated_bias_gap - leftRun.mitigated_bias_gap : null;
+  const comparisonAccuracyDelta = leftRun && rightRun ? rightRun.accuracy - leftRun.accuracy : null;
   const simulation = [
     { month: "Jan", baseline: data.baseline.demographic_parity_difference * 0.82, mitigated: data.mitigated.demographic_parity_difference * 1.1 },
     { month: "Feb", baseline: data.baseline.demographic_parity_difference * 0.94, mitigated: data.mitigated.demographic_parity_difference * 1.3 },
@@ -2311,6 +2336,72 @@ function MonitoringCenter({
             </div>
           ))}
         </div>
+      </article>
+
+      <article className="panel span-12">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Compare runs</p>
+            <h2>Side-by-side fairness decision review</h2>
+          </div>
+          <span className="status-chip">{comparisonOptions.length} saved views</span>
+        </div>
+        <div className="compare-toolbar">
+          <label>
+            <span>Run A</span>
+            <select value={leftOption?.key ?? ""} onChange={(event) => setCompareLeftKey(event.target.value)}>
+              {comparisonOptions.map((option) => (
+                <option value={option.key} key={option.key}>{savedRunOptionLabel(option.run)}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Run B</span>
+            <select value={rightOption?.key ?? ""} onChange={(event) => setCompareRightKey(event.target.value)}>
+              {comparisonOptions.map((option) => (
+                <option value={option.key} key={option.key}>{savedRunOptionLabel(option.run)}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {comparisonOptions.length < 2 && (
+          <p className="compare-hint">Re-run another audit to compare different datasets, protected groups, roles, or policy thresholds.</p>
+        )}
+
+        {leftRun && rightRun && (
+          <>
+            <div className="compare-summary-grid">
+              <CompareRunCard label="Run A" run={leftRun} />
+              <div className="compare-delta-card">
+                <p className="eyebrow">B versus A</p>
+                <strong className={comparisonGapDelta !== null && comparisonGapDelta <= 0 ? "good" : "watch"}>
+                  {signedPercent(comparisonGapDelta)}
+                </strong>
+                <span>Mitigated parity gap delta</span>
+                <div className="mini-row"><span>Accuracy delta</span><em>{signedPercent(comparisonAccuracyDelta)}</em></div>
+                <div className="mini-row"><span>Decision change</span><em>{savedDecisionLabel(leftRun)} to {savedDecisionLabel(rightRun)}</em></div>
+              </div>
+              <CompareRunCard label="Run B" run={rightRun} />
+            </div>
+            <div className="compare-table">
+              <div className="compare-table-head">
+                <span>Metric</span>
+                <span>Run A</span>
+                <span>Run B</span>
+                <span>Delta</span>
+              </div>
+              {comparisonRows.map((row) => (
+                <div className="compare-table-row" key={row.label}>
+                  <strong>{row.label}</strong>
+                  <span>{row.left}</span>
+                  <span>{row.right}</span>
+                  <em className={row.tone}>{row.delta}</em>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </article>
 
       <article className="panel span-12">
