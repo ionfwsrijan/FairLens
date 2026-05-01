@@ -1969,6 +1969,161 @@ p, span, div {
 .history-card span { display: block; font-size: 12px; color: var(--on-surface-variant); margin-bottom: 8px; }
 .history-card strong { display: block; font-size: 16px; color: #fff; margin-bottom: 16px; }
 
+.compare-toolbar,
+.compare-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.compare-toolbar label {
+  display: grid;
+  gap: 8px;
+}
+
+.compare-toolbar span {
+  color: var(--on-surface-variant);
+  font-family: var(--font-space-grotesk), monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.compare-toolbar select {
+  min-width: 0;
+  min-height: 48px;
+  width: 100%;
+  border: 1px solid var(--outline-variant);
+  border-radius: 4px;
+  padding: 12px 14px;
+  background: var(--surface-container-highest);
+  color: var(--on-surface);
+  font: inherit;
+}
+
+.compare-toolbar select:focus {
+  border-color: var(--primary-container);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--primary-container);
+}
+
+.compare-hint {
+  margin: 0 0 18px;
+  color: var(--on-surface-variant);
+  font-size: 14px;
+}
+
+.compare-summary-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr) minmax(0, 1fr);
+}
+
+.compare-run-card,
+.compare-delta-card {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.compare-run-card h3 {
+  margin: 8px 0 8px;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.compare-run-card > span {
+  display: block;
+  margin-bottom: 14px;
+  color: var(--on-surface-variant);
+  font-size: 12px;
+}
+
+.compare-delta-card {
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  background:
+    linear-gradient(135deg, rgba(112, 74, 255, 0.15), rgba(0, 255, 157, 0.06)),
+    rgba(255, 255, 255, 0.03);
+}
+
+.compare-delta-card strong {
+  color: #fff;
+  font-size: 44px;
+  line-height: 1;
+}
+
+.compare-delta-card strong.good,
+.compare-table-row em.good {
+  color: var(--primary-container);
+}
+
+.compare-delta-card strong.watch,
+.compare-table-row em.watch {
+  color: #ffb4ab;
+}
+
+.compare-delta-card > span {
+  color: var(--on-surface-variant);
+  font-size: 14px;
+}
+
+.compare-table {
+  display: grid;
+  margin-top: 18px;
+}
+
+.compare-table-head,
+.compare-table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) repeat(3, minmax(80px, 0.6fr));
+  gap: 16px;
+  align-items: center;
+  min-width: 0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--outline-variant);
+}
+
+.compare-table-head {
+  color: var(--on-surface-variant);
+  font-family: var(--font-space-grotesk), monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.compare-table-row:last-child {
+  border-bottom: 0;
+}
+
+.compare-table-row strong,
+.compare-table-row span,
+.compare-table-row em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.compare-table-row strong {
+  color: #fff;
+  font-size: 15px;
+}
+
+.compare-table-row span,
+.compare-table-row em {
+  color: var(--on-surface);
+  font-size: 15px;
+  font-style: normal;
+}
+
+.compare-table-row em.neutral {
+  color: var(--on-surface-variant);
+}
+
 .drift-grid {
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
@@ -2157,10 +2312,15 @@ p, span, div {
 
   .context-strip,
   .history-grid,
+  .compare-summary-grid,
   .drift-grid,
   .role-metric-grid,
   .role-action-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compare-summary-grid {
+    grid-template-columns: 1fr;
   }
 
   .judge-summary {
@@ -2236,6 +2396,8 @@ p, span, div {
   .attribute-grid,
   .action-stack,
   .history-grid,
+  .compare-toolbar,
+  .compare-summary-grid,
   .drift-grid,
   .judge-summary-grid,
   .threshold-preset-grid,
@@ -2388,6 +2550,8 @@ p, span, div {
   .table-row,
   .workflow div,
   .policy-table div,
+  .compare-table-head,
+  .compare-table-row,
   .scorecard-row {
     display: flex;
     align-items: flex-start;
