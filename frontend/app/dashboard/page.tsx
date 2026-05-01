@@ -2456,6 +2456,70 @@ function MonitoringCenter({
   );
 }
 
+function CompareRunCard({ label, run }: { label: string; run: AuditRun }) {
+  return (
+    <div className="compare-run-card">
+      <p className="eyebrow">{label}</p>
+      <h3>{savedDatasetLabel(run.dataset)} / {savedAttributeLabel(run.protected_attribute)}</h3>
+      <span>{new Date(run.created_at).toLocaleString()}</span>
+      <div className="mini-row"><span>Role lens</span><em>{run.role ?? "Legacy"}</em></div>
+      <div className="mini-row"><span>Policy preset</span><em>{savedPresetLabel(run.threshold_preset)}</em></div>
+      <div className="mini-row"><span>Decision</span><em>{savedDecisionLabel(run)}</em></div>
+      <div className="mini-row"><span>Mitigated gap</span><em>{percent(run.mitigated_bias_gap)}</em></div>
+    </div>
+  );
+}
+
+function buildRunComparisonRows(left: AuditRun, right: AuditRun): RunComparisonRow[] {
+  return [
+    comparePercentRow("Baseline parity gap", left.bias_gap, right.bias_gap, "lower"),
+    comparePercentRow("Mitigated parity gap", left.mitigated_bias_gap, right.mitigated_bias_gap, "lower"),
+    comparePercentRow("Accuracy", left.accuracy, right.accuracy, "higher"),
+    comparePercentRow("Bias reduction", runBiasReduction(left), runBiasReduction(right), "higher"),
+    comparePercentRow("Max parity threshold", left.thresholds?.max_parity_gap, right.thresholds?.max_parity_gap, "neutral"),
+    comparePercentRow("Minimum accuracy threshold", left.thresholds?.min_accuracy, right.thresholds?.min_accuracy, "neutral"),
+    compareRatioRow("Impact ratio threshold", left.thresholds?.min_disparate_impact, right.thresholds?.min_disparate_impact),
+  ];
+}
+
+function comparePercentRow(
+  label: string,
+  left: number | undefined,
+  right: number | undefined,
+  direction: "higher" | "lower" | "neutral"
+): RunComparisonRow {
+  const delta = left === undefined || right === undefined ? null : right - left;
+  return {
+    label,
+    left: percent(left),
+    right: percent(right),
+    delta: signedPercent(delta),
+    tone: comparisonTone(delta, direction)
+  };
+}
+
+function compareRatioRow(label: string, left: number | undefined, right: number | undefined): RunComparisonRow {
+  const delta = left === undefined || right === undefined ? null : right - left;
+  return {
+    label,
+    left: number(left, 2),
+    right: number(right, 2),
+    delta: signedNumber(delta, 2),
+    tone: "neutral"
+  };
+}
+
+function comparisonTone(value: number | null, direction: "higher" | "lower" | "neutral") {
+  if (value === null || Math.abs(value) < 0.0005 || direction === "neutral") return "neutral";
+  if (direction === "higher") return value > 0 ? "good" : "watch";
+  return value < 0 ? "good" : "watch";
+}
+
+function runBiasReduction(run: AuditRun) {
+  if (!run.bias_gap) return 0;
+  return Math.max(0, (run.bias_gap - run.mitigated_bias_gap) / run.bias_gap);
+}
+
 function buildSavedRunPolicyStatus(data: AuditResponse, thresholds: FairnessThresholds) {
   const checks = [
     {
@@ -2497,12 +2561,27 @@ function savedDatasetLabel(dataset: string | undefined) {
   return "Dataset";
 }
 
+function savedRunOptionLabel(run: AuditRun) {
+  const date = new Date(run.created_at).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+  return `${savedDatasetLabel(run.dataset)} - ${savedAttributeLabel(run.protected_attribute)} - ${savedPresetLabel(run.threshold_preset)} - ${date}`;
+}
+
 function savedPresetLabel(preset: string | undefined) {
   if (preset === "strict") return "Strict";
   if (preset === "balanced") return "Balanced";
   if (preset === "demo") return "Demo-friendly";
   if (preset === "custom") return "Custom";
   return "Legacy run";
+}
+
+function savedDecisionLabel(run: AuditRun) {
+  if (run.policy_status?.decision) return run.policy_status.decision;
+  return run.mitigated_bias_gap < (run.thresholds?.max_parity_gap ?? 0.05) ? "Ready" : "Review";
 }
 
 function buildAuditTimeline(data: AuditResponse, runs: AuditRun[]): TimelinePoint[] {
