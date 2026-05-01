@@ -377,6 +377,11 @@ function number(value: number | null | undefined, digits = 1) {
   return value.toFixed(digits);
 }
 
+function signedNumber(value: number | null | undefined, digits = 2) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "n/a";
+  return `${value > 0 ? "+" : ""}${value.toFixed(digits)}`;
+}
+
 function compactNumber(value: number) {
   return new Intl.NumberFormat("en", { notation: "compact" }).format(value);
 }
